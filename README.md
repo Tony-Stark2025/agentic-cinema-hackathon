@@ -1,57 +1,109 @@
-# 🎬 Agentic Cinema: The Blockbuster Hackathon
+# 🎬 Showrunner: Autonomous Studio Operations & Observability Copilot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Gemini%20%26%20Agent%20Builder-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/vertex-ai)
+[![Google Gemini 3.x](https://img.shields.io/badge/Google%20Gemini-3.x%20Flash%20Pool-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
+[![Grafana Cloud MCP](https://img.shields.io/badge/Grafana%20Cloud-MCP%20Server-F46800?logo=grafana&logoColor=white)](https://grafana.com)
 [![Devpost](https://img.shields.io/badge/Devpost-Agentic%20Cinema-003E54?logo=devpost&logoColor=white)](https://agentic-cinema.devpost.com)
 
-Welcome to the **Agentic Cinema** project repository! This project is being developed for **[Agentic Cinema: The Blockbuster Hackathon](https://agentic-cinema.devpost.com)** hosted by Google Cloud and Devpost.
+**Showrunner** is an enterprise-grade autonomous studio operations copilot built for the **[Agentic Cinema Hackathon (Grafana Labs Track)](https://agentic-cinema.devpost.com)**.
+
+Powered by a high-throughput **Google Gemini 3.x Flash & Flash-Lite Multi-Model Pool** and connected to the **Grafana Cloud Model Context Protocol (MCP)** server, Showrunner autonomously monitors, diagnoses, and self-heals VFX 3D render farms (Blender Cycles, Unreal Engine 5.4 Nanite/Lumen) and virtual production LED volumes.
 
 ---
 
-## 🌟 Overview
+## 🌟 Key Features
 
-The goal of this hackathon is to build a functional, production-ready AI agent or multi-agent network—powered by **Google Gemini** and **Google Cloud Agent Builder / ADK**—integrated with leading partner technologies and **Model Context Protocol (MCP)** servers to revolutionize the media and entertainment value chain.
-
-Key workflows include:
-- 🎬 **Autonomous Production & Directing**: Directing multi-agent AI crews for script breakdown, casting, scene scheduling, and storyboarding.
-- 📄 **Script Processing & Grounding**: Deep semantic document analysis, RAG over screenplays and production notes.
-- 🎨 **Multimodal Visual & VFX Generation**: Mood boards, concept art, and storyboard synthesis via Imagen 3 & Gemini multimodal vision.
-- 🎵 **Audio & Speech Production**: Dialogue rehearsal, sentiment analysis, multi-speaker voice synthesis, and sound effect generation.
-- 📊 **Real-time Observability & Analytics**: Querying production telemetry, box-office data, and web intelligence through MCP servers.
-
----
-
-## 🏆 Partner Tracks & Ecosystem
-
-| Track | Partner | Core Technology / Runtime Requirement |
-| :--- | :--- | :--- |
-| **Track 1** | **IBM** | Built with **IBM Bob** & optional Confluent for real-time event-driven agent workflows. |
-| **Track 2** | **Grafana Labs** | Integrated at runtime with **Grafana Cloud MCP Server** (`grafana/mcp-grafana`) & AI Observability. |
-| **Track 3** | **Parallel** | Runtime web research and extraction via **Parallel Search API / SDK** (`@parallel-web/ai-sdk-tools` or MCP). |
-| **Track 4** | **ClickHouse** | Real-time analytical querying via **ClickHouse MCP Server** (`mcp-clickhouse`) on ClickHouse Cloud / local clusters. |
-| **Track 5** | **Replit** | Developed with **Replit Agent** and deployed directly on Replit (`replit.app`). |
-
-Detailed track guides, requirements, and reference links are documented in [`docs/HACKATHON_TRACKS.md`](docs/HACKATHON_TRACKS.md).
+- 🧠 **Gemini 3.x Multi-Model Pool**: Intelligently load-balances across `gemini-3.1-flash`, `gemini-3.1-flash-lite`, `gemini-3.0-flash`, and `gemini-3.0-flash-lite` to eliminate per-model rate limits.
+- 🤖 **Autonomous Multi-Agent Crew**:
+  - **Sentinel Agent** (`gemini-3.1-flash-lite`): Real-time sub-second PromQL anomaly detection.
+  - **Diagnostic Agent** (`gemini-3.1-flash`): LogQL crash dump extraction & Tempo distributed trace isolation.
+  - **Remediation Agent** (`gemini-3.1-flash`): Autonomous GPU VRAM flushing, tile re-splitting, and job failover via MCP.
+  - **Executive Agent** (`gemini-3.1-flash-lite`): Financial downtime savings calculation and daily studio production summaries.
+- 🔌 **Official Model Context Protocol (MCP)**: Native integration with `grafana/mcp-grafana` tools for metrics (Mimir), logs (Loki), traces (Tempo), and dashboard annotations.
+- 📊 **OpenTelemetry AI Observability**: In-depth monitoring of LLM latency, token usage, and tool invocations.
+- 🖥️ **Studio Operations Command Center**: High-fidelity dark cinematic UI displaying real-time 16-node GPU clusters, live agent reasoning streams, interactive incident simulators, and Technical Director chat console.
 
 ---
 
-## 🛠️ Tech Stack & Architecture
+## 🏗️ Architecture
 
-- **Core AI Engine**: Google Gemini (Gemini 2.0 / 1.5 Pro / Flash) & Google GenAI SDK
-- **Agent Framework**: Google Cloud Agent Development Kit (ADK) / Agent Engine / Vertex AI Agent Builder
-- **Protocol**: Model Context Protocol (MCP) for tool execution and database connectivity
-- **Language & Runtime**: Node.js / TypeScript & Python 3.11+
-- **Version Control**: Git & GitHub CLI
+```mermaid
+flowchart TD
+    subgraph Studio Infrastructure
+        RF[VFX 3D Render Clusters: Unreal Engine 5.4 / Blender] -->|Prometheus Metrics| GC[Grafana Cloud Observability Stack]
+        VP[Virtual Production LED Stages & Video Ingest] -->|Loki Logs| GC
+        MS[GenMedia Microservices & Transcoding Nodes] -->|Tempo Distributed Traces| GC
+    end
+
+    subgraph Showrunner Agentic Core (Gemini 3.x + MCP)
+        GC <-->|Grafana Cloud MCP Server 60+ Tools| MCPG[MCP Gateway Client]
+        MCPG <--> GE[Gemini 3.x Multi-Agent Orchestrator]
+        
+        subgraph Multi-Model Pool
+            M1[gemini-3.1-flash]
+            M2[gemini-3.1-flash-lite]
+            M3[gemini-3.0-flash]
+            M4[gemini-3.0-flash-lite]
+        end
+        GE --- Multi-Model Pool
+        
+        subgraph Multi-Agent Crew
+            A1[Sentinel Agent: Anomaly Detection]
+            A2[Diagnostic Agent: Root Cause Analysis]
+            A3[Remediation Agent: Dynamic Self-Healing]
+            A4[Executive Agent: Financial Impact & Dailies]
+        end
+        GE --- A1
+        GE --- A2
+        GE --- A3
+        GE --- A4
+        
+        GE <--> OTEL[OpenTelemetry AI Observability]
+        OTEL -->|LLM Spans, Latency, Token Metrics| GC
+    end
+
+    subgraph Studio Command Center
+        GE <--> UI[Next.js 15 Dark Studio Command Center]
+        UI --> TD[VFX Technical Director & Studio Executives]
+    end
+```
 
 ---
 
-## 📋 Hackathon Submission Checklist
+## 🚀 Quick Start
 
-- [ ] Functional agent / multi-agent workflow integrated with Google Cloud and chosen Partner MCP/SDK
-- [ ] Hosted project deployment URL
-- [ ] 3-Minute Demo Video (YouTube / Vimeo in English or with English subtitles)
-- [ ] Public open-source Git repository with detectable [LICENSE](LICENSE)
-- [ ] Devpost submission entry completed before **September 9, 2026 @ 2:00 PM PDT**
+### 1. Clone & Setup
+```bash
+git clone https://github.com/Tony-Stark2025/agentic-cinema-hackathon.git
+cd agentic-cinema-hackathon
+npm install
+```
+
+### 2. Configure Environment Variables
+Copy `.env.example` to `.env.local` and add your **Gemini API Key**:
+```bash
+cp .env.example .env.local
+```
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_PRIMARY_MODEL=gemini-3.1-flash
+GEMINI_LITE_MODEL=gemini-3.1-flash-lite
+```
+
+### 3. Run Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) to access the **Showrunner Studio Operations Command Center**.
+
+---
+
+## 🧪 Testing
+
+Run the automated test suite:
+```bash
+npm test
+```
 
 ---
 
