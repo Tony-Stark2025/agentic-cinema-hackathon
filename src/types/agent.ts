@@ -1,10 +1,10 @@
 export type AgentRole = 'SENTINEL' | 'DIAGNOSTICIAN' | 'REMEDIATION' | 'EXECUTIVE';
 
 export type GeminiModelId = 
-  | 'gemini-3.1-flash'
-  | 'gemini-3.1-flash-lite'
-  | 'gemini-3.0-flash'
-  | 'gemini-3.0-flash-lite';
+  | 'gemini-3.7-flash'
+  | 'gemini-3.5-flash'
+  | 'gemini-3.5-flash-lite'
+  | 'gemini-3.1-flash-lite';
 
 export interface AgentThoughtStep {
   id: string;

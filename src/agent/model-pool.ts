@@ -13,19 +13,19 @@ export class GeminiModelPool {
   private apiKey: string;
   private metrics: Map<GeminiModelId, ModelMetricsSnapshot> = new Map();
 
-  // Model pools optimized per agent role for Gemini 3.x
+  // Official Gemini 3.x Model Pool optimized per agent role
   private rolePrimaryModels: Record<AgentRole, GeminiModelId> = {
-    SENTINEL: 'gemini-3.1-flash-lite',
-    DIAGNOSTICIAN: 'gemini-3.1-flash',
-    REMEDIATION: 'gemini-3.1-flash',
-    EXECUTIVE: 'gemini-3.1-flash-lite'
+    SENTINEL: 'gemini-3.5-flash-lite',
+    DIAGNOSTICIAN: 'gemini-3.7-flash',
+    REMEDIATION: 'gemini-3.7-flash',
+    EXECUTIVE: 'gemini-3.5-flash-lite'
   };
 
   private fallbackChain: GeminiModelId[] = [
-    'gemini-3.1-flash',
-    'gemini-3.1-flash-lite',
-    'gemini-3.0-flash',
-    'gemini-3.0-flash-lite'
+    'gemini-3.7-flash',
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite'
   ];
 
   private constructor() {
@@ -58,7 +58,7 @@ export class GeminiModelPool {
     role: AgentRole,
     options: ModelInvocationOptions
   ): Promise<{ text: string; modelUsed: GeminiModelId; latencyMs: number }> {
-    const primary = this.rolePrimaryModels[role] || 'gemini-3.1-flash';
+    const primary = this.rolePrimaryModels[role] || 'gemini-3.7-flash';
     const modelsToTry = [primary, ...this.fallbackChain.filter(m => m !== primary)];
 
     let lastError: Error | null = null;
@@ -111,7 +111,6 @@ export class GeminiModelPool {
         }
       ],
       generationConfig: {
-        temperature: options.temperature ?? 0.2,
         maxOutputTokens: options.maxTokens ?? 1024
       }
     };
