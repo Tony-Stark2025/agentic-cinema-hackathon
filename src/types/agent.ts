@@ -2,6 +2,7 @@ export type AgentRole = 'SENTINEL' | 'DIAGNOSTICIAN' | 'REMEDIATION' | 'EXECUTIV
 
 export type GeminiModelId = 
   | 'gemini-3.7-flash'
+  | 'gemini-3.6-flash'
   | 'gemini-3.5-flash'
   | 'gemini-3.5-flash-lite'
   | 'gemini-3.1-flash-lite';
@@ -38,4 +39,7 @@ export interface ModelMetricsSnapshot {
   avgLatencyMs: number;
   rateLimitHits: number;
   fallbacksTriggered: number;
+  circuitBreakerActive: boolean;
+  circuitBreakerCooldownUntil?: number;
+  currentTpmEstimated: number;
 }
