@@ -2,8 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Google Gemini 3.x](https://img.shields.io/badge/Google%20Gemini-3.x%20Flash%20Pool%20(5x%20Quota)-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
+[![Google Cloud Run](https://img.shields.io/badge/Google%20Cloud%20Run-Live%20Demo-34A853?logo=googlecloud&logoColor=white)](https://showrunner-studio-ops-135010851380.us-central1.run.app)
 [![Grafana Cloud MCP](https://img.shields.io/badge/Grafana%20Cloud-MCP%20Server-F46800?logo=grafana&logoColor=white)](https://grafana.com)
 [![Devpost](https://img.shields.io/badge/Devpost-Agentic%20Cinema-003E54?logo=devpost&logoColor=white)](https://agentic-cinema.devpost.com)
+
+**Live Production URL on Google Cloud Run**: [https://showrunner-studio-ops-135010851380.us-central1.run.app](https://showrunner-studio-ops-135010851380.us-central1.run.app)
 
 **Showrunner** is an enterprise-grade autonomous studio operations copilot built for the **[Agentic Cinema Hackathon (Grafana Labs Track)](https://agentic-cinema.devpost.com)**.
 
