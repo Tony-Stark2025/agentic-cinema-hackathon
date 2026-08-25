@@ -130,7 +130,7 @@ export const AgentInvestigation: React.FC<AgentInvestigationProps> = ({
                           <span className="text-slate-500 uppercase text-[9px] font-bold">Arguments:</span>
                           <pre className="text-cyan-300 mt-0.5">{JSON.stringify(step.toolCall.arguments, null, 2)}</pre>
                         </div>
-                        {step.toolCall.result && (
+                        {Boolean(step.toolCall.result) && (
                           <div>
                             <span className="text-slate-500 uppercase text-[9px] font-bold">Grafana MCP Result:</span>
                             <pre className="text-slate-300 mt-0.5 max-h-36 overflow-y-auto">{JSON.stringify(step.toolCall.result, null, 2)}</pre>
