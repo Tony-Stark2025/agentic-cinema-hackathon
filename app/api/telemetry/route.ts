@@ -1,23 +1,23 @@
 import { NextResponse } from 'next/server';
 import { StudioStateManager } from '@/src/telemetry/studio-state';
-import { GeminiModelPool } from '@/src/agent/model-pool';
+import { VertexAiGeminiClient } from '@/src/agent/vertex-client';
 import { OtelAiObservability } from '@/src/agent/otel';
 
 export async function GET() {
   const stateManager = StudioStateManager.getInstance();
-  const modelPool = GeminiModelPool.getInstance();
+  const vertexAi = VertexAiGeminiClient.getInstance();
   const otel = OtelAiObservability.getInstance();
 
   const snapshot = stateManager.getSnapshot();
   const incidents = stateManager.getActiveIncidents();
-  const modelMetrics = modelPool.getModelMetrics();
+  const vertexMetrics = vertexAi.getMetrics();
   const otelAggregates = otel.getAggregates();
 
   return NextResponse.json({
     telemetry: snapshot,
     incidents,
-    modelPool: {
-      activeModels: modelMetrics,
+    vertexAi: {
+      metrics: vertexMetrics,
       aiObservability: otelAggregates
     }
   });

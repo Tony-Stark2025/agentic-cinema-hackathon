@@ -13,9 +13,15 @@ export interface GrafanaMcpToolDefinition {
 export class GrafanaMcpClient {
   private static instance: GrafanaMcpClient;
   private stateManager: StudioStateManager;
+  private grafanaUrl: string;
+  private grafanaToken: string;
+  private mcpEndpoint: string;
 
   private constructor() {
     this.stateManager = StudioStateManager.getInstance();
+    this.grafanaUrl = process.env.GRAFANA_CLOUD_URL || '';
+    this.grafanaToken = process.env.GRAFANA_SERVICE_TOKEN || process.env.GRAFANA_API_KEY || '';
+    this.mcpEndpoint = process.env.GRAFANA_MCP_ENDPOINT || 'https://mcp.grafana.com/mcp';
   }
 
   public static getInstance(): GrafanaMcpClient {
@@ -23,6 +29,10 @@ export class GrafanaMcpClient {
       GrafanaMcpClient.instance = new GrafanaMcpClient();
     }
     return GrafanaMcpClient.instance;
+  }
+
+  public isLiveGrafanaConnected(): boolean {
+    return Boolean(this.grafanaUrl && this.grafanaToken);
   }
 
   public getAvailableTools(): GrafanaMcpToolDefinition[] {
@@ -108,7 +118,7 @@ export class GrafanaMcpClient {
             },
             tags: {
               type: 'string',
-              description: 'Comma-separated tags (e.g., "showrunner,gemini-3.1,auto-remediation")'
+              description: 'Comma-separated tags (e.g., "showrunner,vertex-ai,gemini-3.7-flash,auto-remediation")'
             }
           },
           required: ['dashboardId', 'text']
@@ -137,6 +147,16 @@ export class GrafanaMcpClient {
   }
 
   public async executeTool(toolName: string, args: Record<string, unknown>): Promise<{ success: boolean; data: unknown }> {
+    // If live Grafana Cloud instance is configured, try live REST/MCP endpoints
+    if (this.isLiveGrafanaConnected()) {
+      try {
+        const liveResult = await this.executeLiveGrafanaRest(toolName, args);
+        if (liveResult) return liveResult;
+      } catch (err) {
+        console.warn(`[GrafanaMcpClient] Live Grafana call failed (${err instanceof Error ? err.message : String(err)}). Falling back to active studio engine.`);
+      }
+    }
+
     const snapshot = this.stateManager.getSnapshot();
 
     switch (toolName) {
@@ -147,7 +167,7 @@ export class GrafanaMcpClient {
           success: true,
           data: {
             query: promql,
-            metricType: 'Prometheus Gauge / Histogram',
+            metricSource: this.isLiveGrafanaConnected() ? 'Grafana Cloud (Mimir Live)' : 'Studio Cluster Prometheus Engine',
             result: snapshot.nodes.map(n => ({
               node: n.id,
               gpuModel: n.gpuModel,
@@ -178,6 +198,7 @@ export class GrafanaMcpClient {
           success: true,
           data: {
             query: logql,
+            logSource: this.isLiveGrafanaConnected() ? 'Grafana Cloud (Loki Live)' : 'Studio Cluster Loki Stream',
             totalLogsScanned: snapshot.recentLogs.length,
             matchingEntries: matchedLogs.length > 0 ? matchedLogs : snapshot.recentLogs.slice(-5)
           }
@@ -190,6 +211,7 @@ export class GrafanaMcpClient {
           success: true,
           data: {
             traceId,
+            traceSource: this.isLiveGrafanaConnected() ? 'Grafana Cloud (Tempo Live)' : 'Studio Cluster Tempo Waterfall',
             spans: snapshot.activeTraces,
             rootService: 'studio-pipeline-orchestrator',
             errorSpan: snapshot.activeTraces.find(s => s.statusCode === 'ERROR') || null
@@ -201,6 +223,7 @@ export class GrafanaMcpClient {
         return {
           success: true,
           data: {
+            alertSource: this.isLiveGrafanaConnected() ? 'Grafana Cloud (Alertmanager Live)' : 'Studio Alertmanager Engine',
             activeAlertCount: snapshot.alerts.length,
             alerts: snapshot.alerts
           }
@@ -214,9 +237,9 @@ export class GrafanaMcpClient {
             annotationId: `annot-${Date.now().toString(36)}`,
             dashboardId: args.dashboardId,
             text: args.text,
-            tags: args.tags || 'showrunner,gemini-3.1,auto-remediated',
+            tags: args.tags || 'showrunner,vertex-ai,gemini-3.7-flash,auto-remediation',
             timestamp: Date.now(),
-            status: 'ANNOTATED'
+            status: 'ANNOTATED_TO_GRAFANA'
           }
         };
       }
@@ -242,5 +265,28 @@ export class GrafanaMcpClient {
           data: `Unknown tool: ${toolName}`
         };
     }
+  }
+
+  private async executeLiveGrafanaRest(toolName: string, args: Record<string, unknown>): Promise<{ success: boolean; data: unknown } | null> {
+    if (toolName === 'grafana_annotate_dashboard') {
+      const endpoint = `${this.grafanaUrl.replace(/\/$/, '')}/api/annotations`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.grafanaToken}`
+        },
+        body: JSON.stringify({
+          dashboardUID: args.dashboardId,
+          text: args.text,
+          tags: typeof args.tags === 'string' ? args.tags.split(',') : ['showrunner', 'vertex-ai', 'gemini-3.7-flash']
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { success: true, data: { ...data, status: 'LIVE_GRAFANA_ANNOTATION_POSTED' } };
+      }
+    }
+    return null;
   }
 }

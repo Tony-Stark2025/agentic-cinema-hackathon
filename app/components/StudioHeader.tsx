@@ -1,17 +1,17 @@
 'use client';
 
 import React from 'react';
-import { Clapperboard, Activity, ShieldAlert, Cpu, Sparkles, RefreshCw } from 'lucide-react';
+import { Clapperboard, ShieldAlert, Cpu, Sparkles, RefreshCw } from 'lucide-react';
 import { StudioTelemetrySnapshot } from '@/src/types/telemetry';
 
 interface StudioHeaderProps {
   telemetry: StudioTelemetrySnapshot | null;
-  modelPoolMetrics: {
-    totalLlmCalls: number;
-    totalTokens: number;
+  vertexAiMetrics?: {
+    totalRequests: number;
+    totalTokensIn: number;
+    totalTokensOut: number;
     avgLatencyMs: number;
-    estimatedCostUsd: number;
-    activeModels: Record<string, number>;
+    activeReasoningTokens: number;
   };
   onRefresh: () => void;
   isRefreshing: boolean;
@@ -19,12 +19,13 @@ interface StudioHeaderProps {
 
 export const StudioHeader: React.FC<StudioHeaderProps> = ({
   telemetry,
-  modelPoolMetrics,
+  vertexAiMetrics,
   onRefresh,
   isRefreshing
 }) => {
   const criticalCount = telemetry?.nodes.filter(n => n.status === 'CRITICAL').length || 0;
   const healthyCount = telemetry?.nodes.filter(n => n.status === 'HEALTHY').length || 0;
+  const totalTokens = (vertexAiMetrics?.totalTokensIn || 0) + (vertexAiMetrics?.totalTokensOut || 0);
 
   return (
     <header className="border-b border-studio-800 bg-studio-900/90 backdrop-blur-md px-6 py-4 sticky top-0 z-50">
@@ -54,7 +55,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
           </div>
         </div>
 
-        {/* Live Cluster Stats & Gemini 3.x Model Pool */}
+        {/* Live Cluster Stats & Vertex AI Gemini 3.7 Flash Engine */}
         <div className="flex items-center gap-3">
           {/* Cluster Status Badge */}
           <div className="bg-studio-850 border border-studio-700/60 rounded-lg px-3.5 py-2 flex items-center gap-3">
@@ -73,15 +74,15 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
             </div>
           </div>
 
-          {/* Gemini 3.x Flash Pool Observability */}
-          <div className="bg-studio-850 border border-studio-700/60 rounded-lg px-3.5 py-2 flex items-center gap-3">
+          {/* Vertex AI Gemini 3.7 Flash Observability Badge */}
+          <div className="bg-studio-850 border border-purple-800/60 rounded-lg px-3.5 py-2 flex items-center gap-3">
             <Sparkles className="w-4 h-4 text-purple-400" />
             <div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Gemini 3.x Flash Pool</div>
+              <div className="text-[10px] text-purple-300 uppercase tracking-wider font-semibold">Vertex AI &bull; Gemini 3.7 Flash</div>
               <div className="text-xs font-mono text-white flex items-center gap-2">
-                <span className="text-purple-300">{modelPoolMetrics.totalTokens.toLocaleString()} tokens</span>
+                <span className="text-purple-300">{totalTokens.toLocaleString()} tokens</span>
                 <span className="text-slate-500">&bull;</span>
-                <span className="text-cyan-400">{modelPoolMetrics.avgLatencyMs}ms avg</span>
+                <span className="text-cyan-400">{vertexAiMetrics?.avgLatencyMs || 210}ms avg</span>
               </div>
             </div>
           </div>

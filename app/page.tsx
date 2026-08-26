@@ -9,18 +9,22 @@ import { TelemetryExplorer } from './components/TelemetryExplorer';
 import { StudioCopilotChat } from './components/StudioCopilotChat';
 import { StudioTelemetrySnapshot } from '@/src/types/telemetry';
 import { StudioIncident } from '@/src/types/incident';
-import { AgentInvestigationSession } from '@/src/types/agent';
+import { AgentInvestigationSession, VertexAiMetricsSnapshot } from '@/src/types/agent';
 
 export default function ShowrunnerDashboard() {
   const [telemetry, setTelemetry] = useState<StudioTelemetrySnapshot | null>(null);
   const [incidents, setIncidents] = useState<StudioIncident[]>([]);
   const [session, setSession] = useState<AgentInvestigationSession | null>(null);
-  const [modelPoolMetrics, setModelPoolMetrics] = useState({
-    totalLlmCalls: 0,
-    totalTokens: 0,
-    avgLatencyMs: 240,
-    estimatedCostUsd: 0,
-    activeModels: {} as Record<string, number>
+  const [vertexAiMetrics, setVertexAiMetrics] = useState<VertexAiMetricsSnapshot>({
+    modelId: 'gemini-3.7-flash',
+    platform: 'Google Cloud Vertex AI',
+    projectId: 'gen-lang-client-0942141479',
+    region: 'us-central1',
+    totalRequests: 0,
+    totalTokensIn: 0,
+    totalTokensOut: 0,
+    avgLatencyMs: 210,
+    activeReasoningTokens: 1024
   });
 
   const [selectedNodeId, setSelectedNodeId] = useState<string>('gpu-node-04');
@@ -35,8 +39,8 @@ export default function ShowrunnerDashboard() {
       if (data.telemetry) {
         setTelemetry(data.telemetry);
         setIncidents(data.incidents || []);
-        if (data.modelPool?.aiObservability) {
-          setModelPoolMetrics(data.modelPool.aiObservability);
+        if (data.vertexAi?.metrics) {
+          setVertexAiMetrics(data.vertexAi.metrics);
         }
       }
     } catch (err) {
@@ -105,10 +109,10 @@ export default function ShowrunnerDashboard() {
 
   return (
     <div className="min-h-screen flex flex-col bg-studio-950 text-slate-100 pb-12">
-      {/* Studio Top Navigation & Telemetry Badges */}
+      {/* Studio Top Navigation & Vertex AI Telemetry Badges */}
       <StudioHeader
         telemetry={telemetry}
-        modelPoolMetrics={modelPoolMetrics}
+        vertexAiMetrics={vertexAiMetrics}
         onRefresh={fetchTelemetry}
         isRefreshing={isRefreshing}
       />
@@ -122,7 +126,7 @@ export default function ShowrunnerDashboard() {
           onSelectNode={setSelectedNodeId}
         />
 
-        {/* 2. Split Screen: Incident Center & Gemini 3.x Reasoning Stream */}
+        {/* 2. Split Screen: Incident Center & Gemini 3.7 Flash Reasoning Stream */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-6 flex flex-col gap-6">
             {/* Incident & Remediation Box */}
@@ -143,7 +147,7 @@ export default function ShowrunnerDashboard() {
           </div>
 
           <div className="lg:col-span-6 flex flex-col gap-6">
-            {/* Gemini 3.x Multi-Agent Reasoning Trace */}
+            {/* Gemini 3.7 Flash Multi-Agent Reasoning Trace */}
             <AgentInvestigation
               session={session}
               isInvestigating={isInvestigating}

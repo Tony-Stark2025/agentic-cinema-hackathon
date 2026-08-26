@@ -1,18 +1,14 @@
 export type AgentRole = 'SENTINEL' | 'DIAGNOSTICIAN' | 'REMEDIATION' | 'EXECUTIVE';
 
-export type GeminiModelId = 
-  | 'gemini-3.7-flash'
-  | 'gemini-3.6-flash'
-  | 'gemini-3.5-flash'
-  | 'gemini-3.5-flash-lite'
-  | 'gemini-3.1-flash-lite';
+export type GeminiModelId = 'gemini-3.7-flash';
 
 export interface AgentThoughtStep {
   id: string;
   agentRole: AgentRole;
-  modelUsed: GeminiModelId;
+  modelUsed: 'gemini-3.7-flash (Vertex AI)';
   timestamp: number;
   thought: string;
+  reasoningBudget?: number;
   toolCall?: {
     name: string;
     arguments: Record<string, unknown>;
@@ -31,15 +27,14 @@ export interface AgentInvestigationSession {
   status: 'ANALYZING' | 'TOOL_INVOCATION' | 'HEALING' | 'COMPLETED';
 }
 
-export interface ModelMetricsSnapshot {
-  modelId: GeminiModelId;
+export interface VertexAiMetricsSnapshot {
+  modelId: 'gemini-3.7-flash';
+  platform: 'Google Cloud Vertex AI';
+  projectId: string;
+  region: string;
   totalRequests: number;
   totalTokensIn: number;
   totalTokensOut: number;
   avgLatencyMs: number;
-  rateLimitHits: number;
-  fallbacksTriggered: number;
-  circuitBreakerActive: boolean;
-  circuitBreakerCooldownUntil?: number;
-  currentTpmEstimated: number;
+  activeReasoningTokens: number;
 }

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { AgentInvestigationSession, AgentThoughtStep } from '@/src/types/agent';
-import { Bot, Terminal, ChevronDown, ChevronRight, CheckCircle, Sparkles, Cpu, Wrench, FileText } from 'lucide-react';
+import { Bot, Terminal, ChevronDown, ChevronRight, CheckCircle, Sparkles, Cpu, Wrench, FileText, BrainCircuit } from 'lucide-react';
 
 interface AgentInvestigationProps {
   session: AgentInvestigationSession | null;
@@ -60,13 +60,13 @@ export const AgentInvestigation: React.FC<AgentInvestigationProps> = ({
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-purple-400" />
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200">
-            Gemini 3.x Multi-Agent Reasoning Trace
+            Vertex AI Gemini 3.7 Flash Reasoning Trace
           </h2>
         </div>
         {isInvestigating && (
           <div className="flex items-center gap-2 text-xs font-mono text-purple-400 bg-purple-950/50 px-2.5 py-1 rounded-full border border-purple-800/60 animate-pulse">
             <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
-            Autonomous Reasoning Active
+            Gemini 3.7 Flash Active Thinking
           </div>
         )}
       </div>
@@ -77,7 +77,7 @@ export const AgentInvestigation: React.FC<AgentInvestigationProps> = ({
           <div className="flex flex-col items-center justify-center h-48 text-center text-slate-500 text-xs font-mono">
             <Terminal className="w-8 h-8 mb-2 text-studio-600" />
             <p>Awaiting incident trigger or studio anomaly...</p>
-            <p className="text-[11px] text-slate-600 mt-1">Click "Simulate Incident" to watch Gemini 3.x investigate and self-heal.</p>
+            <p className="text-[11px] text-slate-600 mt-1">Click &quot;Auto-Diagnose &amp; Heal&quot; to execute Gemini 3.7 Flash multi-agent reasoning.</p>
           </div>
         ) : (
           session.steps.map((step: AgentThoughtStep) => {
@@ -93,9 +93,15 @@ export const AgentInvestigation: React.FC<AgentInvestigationProps> = ({
                       {badge.icon}
                       {badge.label}
                     </span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-studio-800 text-slate-400 border border-studio-700">
-                      {step.modelUsed}
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-950/70 text-purple-300 border border-purple-800/60 flex items-center gap-1">
+                      <BrainCircuit className="w-2.5 h-2.5" />
+                      Gemini 3.7 Flash
                     </span>
+                    {step.reasoningBudget && (
+                      <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-studio-800 text-slate-400">
+                        {step.reasoningBudget} reasoning tokens
+                      </span>
+                    )}
                   </div>
                   <span className="text-[10px] font-mono text-slate-500">
                     {new Date(step.timestamp).toLocaleTimeString()}
@@ -109,14 +115,14 @@ export const AgentInvestigation: React.FC<AgentInvestigationProps> = ({
 
                 {/* MCP Tool Execution Card */}
                 {step.toolCall && (
-                  <div className="mt-2 border border-studio-700/80 rounded bg-studio-950/80 overflow-hidden">
+                  <div className="mt-2 bg-studio-950 rounded border border-studio-800 overflow-hidden">
                     <button
                       onClick={() => toggleExpand(step.id)}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 bg-studio-900/80 text-[11px] font-mono text-amber-400 hover:bg-studio-850 transition-colors"
+                      className="w-full px-3 py-1.5 bg-studio-900/90 hover:bg-studio-850 flex items-center justify-between text-left transition-colors border-b border-studio-800/60"
                     >
-                      <span className="flex items-center gap-1.5">
-                        <Terminal className="w-3.5 h-3.5 text-amber-400" />
-                        MCP Tool Execution: <span className="text-white font-bold">{step.toolCall.name}</span>
+                      <span className="text-[11px] font-mono text-amber-400 flex items-center gap-1.5">
+                        <Terminal className="w-3 h-3 text-amber-400" />
+                        MCP Tool: <strong className="text-white">{step.toolCall.name}</strong>
                       </span>
                       <span className="flex items-center gap-1 text-[10px] text-slate-400">
                         <CheckCircle className="w-3 h-3 text-emerald-400" />
