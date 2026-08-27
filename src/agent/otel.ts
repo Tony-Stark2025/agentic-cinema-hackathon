@@ -5,7 +5,7 @@ export interface OtelSpanRecord {
   traceId: string;
   name: string;
   role: AgentRole;
-  model: GeminiModelId;
+  model: GeminiModelId | string;
   durationMs: number;
   tokensIn: number;
   tokensOut: number;
@@ -45,8 +45,7 @@ export class OtelAiObservability {
     estimatedCostUsd: number;
     activeModels: Record<string, number>;
   } {
-    const totalCalls = this.spans.length;
-    if (totalCalls === 0) {
+    if (this.spans.length === 0) {
       return {
         totalLlmCalls: 0,
         totalTokens: 0,
@@ -56,27 +55,26 @@ export class OtelAiObservability {
       };
     }
 
-    let totalTokensIn = 0;
-    let totalTokensOut = 0;
+    const totalCalls = this.spans.length;
+    let totalTokens = 0;
     let totalLatency = 0;
-    const modelDistribution: Record<string, number> = {};
+    const activeModels: Record<string, number> = {};
 
     for (const span of this.spans) {
-      totalTokensIn += span.tokensIn;
-      totalTokensOut += span.tokensOut;
+      totalTokens += span.tokensIn + span.tokensOut;
       totalLatency += span.durationMs;
-      modelDistribution[span.model] = (modelDistribution[span.model] || 0) + 1;
+      activeModels[span.model] = (activeModels[span.model] || 0) + 1;
     }
 
-    // Gemini 3.x Flash pricing benchmark (~$0.075 / 1M input, $0.30 / 1M output)
-    const estimatedCostUsd = (totalTokensIn * 0.000000075) + (totalTokensOut * 0.00000030);
+    // Google Cloud Vertex AI Gemini 3.7 Flash estimation (~$0.075 per 1M tokens)
+    const estimatedCostUsd = Number(((totalTokens / 1_000_000) * 0.075).toFixed(6));
 
     return {
       totalLlmCalls: totalCalls,
-      totalTokens: totalTokensIn + totalTokensOut,
-      avgLatencyMs: Math.floor(totalLatency / totalCalls),
-      estimatedCostUsd: Number(estimatedCostUsd.toFixed(6)),
-      activeModels: modelDistribution
+      totalTokens,
+      avgLatencyMs: Math.round(totalLatency / totalCalls),
+      estimatedCostUsd,
+      activeModels
     };
   }
 }

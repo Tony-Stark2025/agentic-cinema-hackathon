@@ -1,11 +1,11 @@
 export type AgentRole = 'SENTINEL' | 'DIAGNOSTICIAN' | 'REMEDIATION' | 'EXECUTIVE';
 
-export type GeminiModelId = 'gemini-3.7-flash';
+export type GeminiModelId = 'gemini-3.7-flash' | 'gemini-3.7-flash (Vertex AI)';
 
 export interface AgentThoughtStep {
   id: string;
   agentRole: AgentRole;
-  modelUsed: 'gemini-3.7-flash (Vertex AI)';
+  modelUsed: GeminiModelId;
   timestamp: number;
   thought: string;
   reasoningBudget?: number;
