@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { ShowrunnerOrchestrator } from '@/src/agent/orchestrator';
 import { StudioStateManager } from '@/src/telemetry/studio-state';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -18,7 +21,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const session = await orchestrator.investigateAndRemediateIncident(incident);
+    const mode = body.mode === 'SUPERVISED' ? 'SUPERVISED' : 'AUTONOMOUS';
+    const session = await orchestrator.investigateAndRemediateIncident(incident, mode);
 
     return NextResponse.json({
       success: true,

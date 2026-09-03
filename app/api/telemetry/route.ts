@@ -3,6 +3,9 @@ import { StudioStateManager } from '@/src/telemetry/studio-state';
 import { VertexAiGeminiClient } from '@/src/agent/vertex-client';
 import { OtelAiObservability } from '@/src/agent/otel';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const stateManager = StudioStateManager.getInstance();
   const vertexAi = VertexAiGeminiClient.getInstance();
@@ -10,12 +13,14 @@ export async function GET() {
 
   const snapshot = stateManager.getSnapshot();
   const incidents = stateManager.getActiveIncidents();
+  const clusterAnalytics = stateManager.getClusterAnalytics();
   const vertexMetrics = vertexAi.getMetrics();
   const otelAggregates = otel.getAggregates();
 
   return NextResponse.json({
     telemetry: snapshot,
     incidents,
+    clusterAnalytics,
     vertexAi: {
       metrics: vertexMetrics,
       aiObservability: otelAggregates

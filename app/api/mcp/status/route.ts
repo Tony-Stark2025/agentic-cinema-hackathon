@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { GrafanaMcpClient } from '@/src/mcp/grafana-client';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const mcpClient = GrafanaMcpClient.getInstance();
   const tools = mcpClient.getAvailableTools();

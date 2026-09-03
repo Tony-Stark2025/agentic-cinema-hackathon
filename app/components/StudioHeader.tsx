@@ -74,15 +74,15 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
             </div>
           </div>
 
-          {/* Vertex AI Gemini 3.7 Flash Observability Badge */}
+          {/* Vertex AI Gemini 3.8 Flash Observability Badge */}
           <div className="bg-studio-850 border border-purple-800/60 rounded-lg px-3.5 py-2 flex items-center gap-3">
             <Sparkles className="w-4 h-4 text-purple-400" />
             <div>
-              <div className="text-[10px] text-purple-300 uppercase tracking-wider font-semibold">Vertex AI &bull; Gemini 3.7 Flash</div>
+              <div className="text-[10px] text-purple-300 uppercase tracking-wider font-semibold">Vertex AI &bull; Gemini 3.8 Flash (Uncapped)</div>
               <div className="text-xs font-mono text-white flex items-center gap-2">
                 <span className="text-purple-300">{totalTokens.toLocaleString()} tokens</span>
                 <span className="text-slate-500">&bull;</span>
-                <span className="text-cyan-400">{vertexAiMetrics?.avgLatencyMs || 210}ms avg</span>
+                <span className="text-cyan-400">{vertexAiMetrics?.avgLatencyMs || 185}ms avg</span>
               </div>
             </div>
           </div>

@@ -60,13 +60,13 @@ export const AgentInvestigation: React.FC<AgentInvestigationProps> = ({
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-purple-400" />
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200">
-            Vertex AI Gemini 3.7 Flash Reasoning Trace
+            Vertex AI Gemini 3.8 Flash Parallel Agent Trace
           </h2>
         </div>
         {isInvestigating && (
           <div className="flex items-center gap-2 text-xs font-mono text-purple-400 bg-purple-950/50 px-2.5 py-1 rounded-full border border-purple-800/60 animate-pulse">
             <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
-            Gemini 3.7 Flash Active Thinking
+            Gemini 3.8 Flash Uncapped Reasoning Active
           </div>
         )}
       </div>
@@ -76,8 +76,8 @@ export const AgentInvestigation: React.FC<AgentInvestigationProps> = ({
         {!session || session.steps.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-center text-slate-500 text-xs font-mono">
             <Terminal className="w-8 h-8 mb-2 text-studio-600" />
-            <p>Awaiting incident trigger or studio anomaly...</p>
-            <p className="text-[11px] text-slate-600 mt-1">Click &quot;Auto-Diagnose &amp; Heal&quot; to execute Gemini 3.7 Flash multi-agent reasoning.</p>
+            <p className="text-slate-400">Awaiting studio incident trigger...</p>
+            <p className="text-[11px] text-slate-600 mt-1">Ready for parallel telemetry dispatch and uncapped Gemini 3.8 Flash reasoning.</p>
           </div>
         ) : (
           session.steps.map((step: AgentThoughtStep) => {
@@ -95,13 +95,11 @@ export const AgentInvestigation: React.FC<AgentInvestigationProps> = ({
                     </span>
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-950/70 text-purple-300 border border-purple-800/60 flex items-center gap-1">
                       <BrainCircuit className="w-2.5 h-2.5" />
-                      Gemini 3.7 Flash
+                      Gemini 3.8 Flash
                     </span>
-                    {step.reasoningBudget && (
-                      <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-studio-800 text-slate-400">
-                        {step.reasoningBudget} reasoning tokens
-                      </span>
-                    )}
+                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-studio-800 text-cyan-300 border border-studio-700">
+                      adaptive reasoning
+                    </span>
                   </div>
                   <span className="text-[10px] font-mono text-slate-500">
                     {new Date(step.timestamp).toLocaleTimeString()}

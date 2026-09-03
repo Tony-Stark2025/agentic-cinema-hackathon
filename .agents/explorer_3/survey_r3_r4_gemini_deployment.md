@@ -274,7 +274,7 @@ gcloud run deploy showrunner-studio-ops `
   --project gen-lang-client-0942141479 `
   --region us-central1 `
   --allow-unauthenticated `
-  --set-env-vars GEMINI_API_KEY="AIzaSyDfReXAQzlfeN-4qjsZo7_1spv1JC7oGZ8",SHOWRUNNER_STAGE="STG-VIRTUAL-STAGE-A",ENABLE_OTEL_OBSERVABILITY="true" `
+  --set-env-vars SHOWRUNNER_STAGE="STG-VIRTUAL-STAGE-A",ENABLE_OTEL_OBSERVABILITY="true",GOOGLE_CLOUD_PROJECT="gen-lang-client-0942141479",GOOGLE_CLOUD_REGION="us-central1" `
   --memory 1Gi `
   --cpu 1 `
   --min-instances 0 `

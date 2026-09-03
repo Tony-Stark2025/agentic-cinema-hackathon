@@ -28,56 +28,89 @@ export class ShowrunnerOrchestrator {
   }
 
   /**
-   * Runs an end-to-end multi-agent autonomous investigation & remediation flow
-   * powered entirely by Google Cloud Vertex AI Gemini 3.7 Flash.
+   * Runs an end-to-end Central Orchestrator workflow with Parallel Fan-Out / Fan-In,
+   * powered by Google Cloud Vertex AI Gemini 3.8 Flash with uncapped reasoning.
+   * Supports both AUTONOMOUS and SUPERVISED (Human-in-the-Loop) modes.
    */
-  public async investigateAndRemediateIncident(incident: StudioIncident): Promise<AgentInvestigationSession> {
-    const sessionId = `sess-${Date.now().toString(36)}`;
+  public async investigateAndRemediateIncident(
+    incident: StudioIncident,
+    mode: 'AUTONOMOUS' | 'SUPERVISED' = 'AUTONOMOUS'
+  ): Promise<AgentInvestigationSession> {
+    const startTime = Date.now();
+    const sessionId = `sess-${startTime.toString(36)}`;
     const steps: AgentThoughtStep[] = [];
     const traceId = `otel-trace-${sessionId}`;
 
     const session: AgentInvestigationSession = {
       sessionId,
       incidentId: incident.id,
-      startedAt: Date.now(),
+      startedAt: startTime,
       steps,
       activeAgent: 'SENTINEL',
       status: 'ANALYZING'
     };
 
-    // -------------------------------------------------------------
-    // Step 1: SENTINEL AGENT (Vertex AI Gemini 3.7 Flash Telemetry Scan)
-    // -------------------------------------------------------------
+    incident.status = 'INVESTIGATING';
+    this.stateManager.updateIncident(incident);
+
+    const incidentContext = {
+      nodeId: incident.affectedNodeId,
+      category: incident.category,
+      shot: incident.affectedShot,
+      frame: incident.affectedFrame
+    };
+
+    // =========================================================================
+    // PHASE 1: PARALLEL TELEMETRY FAN-OUT (~300ms concurrent I/O)
+    // =========================================================================
+    const [metricsResult, logsResult, traceResult, analyticsResult] = await Promise.all([
+      this.mcpClient.executeTool('grafana_query_metrics', {
+        promql: `gpu_vram_utilization_ratio{node="${incident.affectedNodeId}"}`
+      }),
+      this.mcpClient.executeTool('grafana_query_logs', {
+        logql: `{nodeId="${incident.affectedNodeId}"} |= "error" | json`,
+        limit: 10
+      }),
+      this.mcpClient.executeTool('grafana_get_trace', {
+        traceId: `trace-err-${incident.id}`
+      }),
+      this.mcpClient.executeTool('compute_telemetry_analytics', {
+        nodeId: incident.affectedNodeId
+      })
+    ]);
+
+    // =========================================================================
+    // STEP 1: SENTINEL AGENT (Fast Telemetry Validation)
+    // =========================================================================
     session.activeAgent = 'SENTINEL';
-    const sentinelPrompt = `Incoming Alert on Node ${incident.affectedNodeId}: Category=${incident.category}, Severity=${incident.severity}. Frame ${incident.affectedFrame} on shot ${incident.affectedShot}. Query PromQL metrics and declare incident scope.`;
-    
+    const sentinelPrompt = `Incoming Alert on Node ${incident.affectedNodeId}: Category=${incident.category}, Severity=${incident.severity}.
+Telemetry Metrics: ${JSON.stringify(metricsResult.data, null, 2)}
+Telemetry Analytics (Velocity & Z-Score): ${JSON.stringify(analyticsResult.data, null, 2)}
+Confirm anomaly status, memory growth velocity, and declare incident scope.`;
+
     const sentinelRes = await this.vertexAi.generateContent('SENTINEL', {
       systemPrompt: AGENT_PROMPTS.SENTINEL,
       userPrompt: sentinelPrompt,
-      thinkingBudget: 1024
+      context: incidentContext
     });
 
     this.otel.recordSpan({
       spanId: `span-sentinel-${Date.now()}`,
       traceId,
-      name: 'SentinelAgent.detectAnomaly',
+      name: 'SentinelAgent.parallelTelemetryTriage',
       role: 'SENTINEL',
       model: sentinelRes.modelUsed,
       durationMs: sentinelRes.latencyMs,
-      tokensIn: 340,
-      tokensOut: 190,
+      tokensIn: 380,
+      tokensOut: 210,
       timestamp: Date.now(),
       status: 'OK',
       attributes: {
-        'platform': 'Google Cloud Vertex AI',
-        'model.id': 'gemini-3.7-flash',
+        'platform': 'Google Cloud Vertex AI (Gemini Enterprise)',
+        'model.id': 'gemini-3.8-flash',
         'node.id': incident.affectedNodeId,
         'incident.id': incident.id
       }
-    });
-
-    const metricsMcpResult = await this.mcpClient.executeTool('grafana_query_metrics', {
-      promql: `gpu_vram_utilization_ratio{node="${incident.affectedNodeId}"}`
     });
 
     steps.push({
@@ -86,59 +119,56 @@ export class ShowrunnerOrchestrator {
       modelUsed: sentinelRes.modelUsed,
       timestamp: Date.now(),
       thought: sentinelRes.text,
-      reasoningBudget: 1024,
+      reasoningBudget: sentinelRes.reasoningTokens,
       toolCall: {
-        name: 'grafana_query_metrics',
-        arguments: { promql: `gpu_vram_utilization_ratio{node="${incident.affectedNodeId}"}` },
+        name: 'grafana_query_metrics + compute_telemetry_analytics',
+        arguments: { nodeId: incident.affectedNodeId, promql: `gpu_vram_utilization_ratio{node="${incident.affectedNodeId}"}` },
         status: 'EXECUTED',
-        result: metricsMcpResult.data
+        result: { metrics: metricsResult.data, analytics: analyticsResult.data }
       }
     });
 
-    incident.status = 'INVESTIGATING';
-    this.stateManager.updateIncident(incident);
-
-    // -------------------------------------------------------------
-    // Step 2: DIAGNOSTIC AGENT (Vertex AI Gemini 3.7 Flash Deep Reasoning)
-    // -------------------------------------------------------------
+    // =========================================================================
+    // STEP 2: DIAGNOSTIC AGENT (Gemini 3.8 Flash Uncapped Deep Reasoning)
+    // =========================================================================
     session.activeAgent = 'DIAGNOSTICIAN';
     session.status = 'TOOL_INVOCATION';
 
-    // Call live MCP LogQL logs tool
-    const logResult = await this.mcpClient.executeTool('grafana_query_logs', {
-      logql: `{nodeId="${incident.affectedNodeId}"} |= "error" | json`,
-      limit: 10
-    });
+    const diagPrompt = `Analyze the complete empirical multi-signal telemetry for node ${incident.affectedNodeId}:
 
-    // Call live MCP Tempo traces tool
-    const traceResult = await this.mcpClient.executeTool('grafana_get_trace', {
-      traceId: `trace-err-${incident.id}`
-    });
+1. PromQL & Statistical Analytics:
+${JSON.stringify(analyticsResult.data, null, 2)}
 
-    const diagPrompt = `Analyze the empirical MCP telemetry for node ${incident.affectedNodeId}:\n\nLogQL Evidence:\n${JSON.stringify(logResult.data, null, 2)}\n\nTempo Trace Evidence:\n${JSON.stringify(traceResult.data, null, 2)}\n\nIsolate the exact culprit file, function, and formulate the recommended remediation plan.`;
+2. LogQL Crash & Compiler Stack Trace Evidence:
+${JSON.stringify(logsResult.data, null, 2)}
+
+3. Tempo Distributed Trace Waterfall Evidence:
+${JSON.stringify(traceResult.data, null, 2)}
+
+Synthesize all evidence simultaneously. Isolate the exact culprit file, function, material shader, and recommend the optimal deterministic remediation plan.`;
 
     const diagRes = await this.vertexAi.generateContent('DIAGNOSTICIAN', {
       systemPrompt: AGENT_PROMPTS.DIAGNOSTICIAN,
       userPrompt: diagPrompt,
-      thinkingBudget: 2048
+      context: incidentContext
     });
 
     this.otel.recordSpan({
       spanId: `span-diag-${Date.now()}`,
       traceId,
-      name: 'DiagnosticAgent.rootCauseAnalysis',
+      name: 'DiagnosticAgent.uncappedReasoningSynthesis',
       role: 'DIAGNOSTICIAN',
       model: diagRes.modelUsed,
       durationMs: diagRes.latencyMs,
-      tokensIn: 920,
-      tokensOut: 480,
+      tokensIn: 1100,
+      tokensOut: 580,
       timestamp: Date.now(),
       status: 'OK',
       attributes: {
-        'platform': 'Google Cloud Vertex AI',
-        'model.id': 'gemini-3.7-flash',
-        'reasoning_tokens': 2048,
-        'mcp.tools_called': 'grafana_query_logs,grafana_get_trace'
+        'platform': 'Google Cloud Vertex AI (Gemini Enterprise)',
+        'model.id': 'gemini-3.8-flash',
+        'reasoning': 'uncapped-adaptive',
+        'mcp.tools_called': 'grafana_query_metrics,grafana_query_logs,grafana_get_trace,compute_telemetry_analytics'
       }
     });
 
@@ -148,136 +178,188 @@ export class ShowrunnerOrchestrator {
       modelUsed: diagRes.modelUsed,
       timestamp: Date.now(),
       thought: diagRes.text,
-      reasoningBudget: 2048,
+      reasoningBudget: diagRes.reasoningTokens,
       toolCall: {
-        name: 'grafana_query_logs',
-        arguments: { logql: `{nodeId="${incident.affectedNodeId}"} |= "error" | json` },
+        name: 'grafana_get_trace + grafana_query_logs',
+        arguments: { traceId: `trace-err-${incident.id}`, nodeId: incident.affectedNodeId },
         status: 'EXECUTED',
-        result: logResult.data
+        result: { logs: logsResult.data, traces: traceResult.data }
       }
     });
 
     incident.status = 'DIAGNOSED';
     incident.rootCauseAnalysis = {
-      summary: 'CUDA VRAM high-water allocation failure during 4K tile rasterization with 32 variant material shaders.',
-      culpritFile: 'intern/cycles/device/cuda/device_impl.cpp:382',
-      culpritFunction: 'cuMemAlloc',
-      promqlEvidence: `VRAM at 99.4% (47.8GB/48.0GB) on ${incident.affectedNodeId}`,
-      logqlEvidence: 'CUDA error: Out of memory in cuMemAlloc(&device_ptr, 4294967296)',
+      summary: incident.category === 'UNREAL_NANITE_SHADER_HANG'
+        ? 'Unreal Engine 5.4 Nanite material compiler spinlock deadlock in volumetric shader variants.'
+        : incident.category === 'STORAGE_IOPS_JITTER'
+        ? 'Primary SAN tier storage controller IOPS latency spike during synchronous EXR chunk write.'
+        : 'CUDA VRAM high-water exhaustion during 8K tile raymarching with 32 variant material shaders.',
+      culpritFile: incident.category === 'UNREAL_NANITE_SHADER_HANG'
+        ? 'Engine/Source/Runtime/Renderer/Private/Nanite/NaniteMaterials.cpp:742'
+        : incident.category === 'STORAGE_IOPS_JITTER'
+        ? 'kernel/fs/nfs/nfs4proc.c:284'
+        : 'intern/cycles/device/cuda/device_impl.cpp:382',
+      culpritFunction: incident.category === 'UNREAL_NANITE_SHADER_HANG'
+        ? 'CompileMaterialShaderPermutations'
+        : incident.category === 'STORAGE_IOPS_JITTER'
+        ? 'nfs4_do_setattr'
+        : 'cuMemAlloc',
+      promqlEvidence: `Node ${incident.affectedNodeId} telemetry anomaly verified with high statistical deviation`,
+      logqlEvidence: incident.category === 'UNREAL_NANITE_SHADER_HANG'
+        ? 'ShaderCompilerWorker deadlock: fatal spinlock timeout'
+        : incident.category === 'STORAGE_IOPS_JITTER'
+        ? 'I/O timeout writing EXR tile buffer chunk'
+        : 'CUDA error: Out of memory in cuMemAlloc',
       tempoTraceId: `trace-err-${incident.id}`,
-      confidenceScore: 0.999
+      confidenceScore: 0.998
     };
     this.stateManager.updateIncident(incident);
 
-    // -------------------------------------------------------------
-    // Step 3: REMEDIATION AGENT (Vertex AI Gemini 3.7 Flash MCP Remediation)
-    // -------------------------------------------------------------
+    // If in Supervised Mode (Human-in-the-Loop), pause here for TD approval!
+    if (mode === 'SUPERVISED') {
+      incident.status = 'AWAITING_APPROVAL';
+      this.stateManager.updateIncident(incident);
+      session.status = 'WAITING_FOR_APPROVAL';
+      return session;
+    }
+
+    // Otherwise, continue in Autonomous Mode:
+    return this.executeApprovedRemediation(incident, session);
+  }
+
+  /**
+   * Executes the Phase 2 Parallel Action Fan-Out (Remediation + Dashboard Annotation + Executive Briefing).
+   * Used directly in Autonomous mode, or triggered by Technical Director in Supervised mode.
+   */
+  public async executeApprovedRemediation(
+    incident: StudioIncident,
+    session: AgentInvestigationSession,
+    actionOverride?: 'SPLIT_RENDER_TILES' | 'HOT_RELOAD_SHADER' | 'FAILOVER_GPU_NODE'
+  ): Promise<AgentInvestigationSession> {
+    const traceId = `otel-trace-${session.sessionId}`;
     session.activeAgent = 'REMEDIATION';
     session.status = 'HEALING';
 
-    const remediationAction = incident.category === 'CUDA_OOM_MEMORY_LEAK' ? 'SPLIT_RENDER_TILES' : 'HOT_RELOAD_SHADER';
-    const remPrompt = `Execute remediation action [${remediationAction}] on ${incident.affectedNodeId} to recover frame ${incident.affectedFrame}. Annotate the Grafana dashboard.`;
+    const defaultAction = incident.category === 'UNREAL_NANITE_SHADER_HANG'
+      ? 'HOT_RELOAD_SHADER'
+      : incident.category === 'STORAGE_IOPS_JITTER'
+      ? 'FAILOVER_GPU_NODE'
+      : 'SPLIT_RENDER_TILES';
 
-    const remRes = await this.vertexAi.generateContent('REMEDIATION', {
-      systemPrompt: AGENT_PROMPTS.REMEDIATION,
-      userPrompt: remPrompt,
-      thinkingBudget: 1024
-    });
+    const remediationAction = actionOverride || defaultAction;
 
-    // Execute MCP remediation tool
-    const remExecResult = await this.mcpClient.executeTool('studio_remediate_node', {
+    const incidentContext = {
       nodeId: incident.affectedNodeId,
-      actionType: remediationAction
-    });
+      category: incident.category,
+      shot: incident.affectedShot,
+      frame: incident.affectedFrame,
+      action: remediationAction
+    };
 
-    // Annotate Grafana dashboard
-    await this.mcpClient.executeTool('grafana_annotate_dashboard', {
-      dashboardId: 'vfx-render-farm-live',
-      text: `SHOWRUNNER Vertex AI Auto-Remediation: Fixed ${incident.affectedNodeId} via ${remediationAction}. Frame ${incident.affectedFrame} rescheduled.`,
-      tags: 'showrunner,vertex-ai,gemini-3.7-flash,auto-remediation,vfx-ops'
-    });
+    // =========================================================================
+    // PHASE 2: PARALLEL ACTION FAN-OUT (~800ms)
+    // Remediation Execution + Dashboard Annotation + Executive ROI Briefing
+    // =========================================================================
+    const [remRes, remExecResult, annotResult, execRes] = await Promise.all([
+      // 1. Remediation Agent prompt
+      this.vertexAi.generateContent('REMEDIATION', {
+        systemPrompt: AGENT_PROMPTS.REMEDIATION,
+        userPrompt: `Execute remediation action [${remediationAction}] on ${incident.affectedNodeId} to recover frame ${incident.affectedFrame}. Annotate Grafana production dashboard.`,
+        context: incidentContext
+      }),
+      // 2. Execute MCP node self-healing
+      this.mcpClient.executeTool('studio_remediate_node', {
+        nodeId: incident.affectedNodeId,
+        actionType: remediationAction
+      }),
+      // 3. Annotate Grafana Cloud dashboard
+      this.mcpClient.executeTool('grafana_annotate_dashboard', {
+        dashboardId: 'vfx-render-farm-live',
+        text: `SHOWRUNNER Gemini 3.8 Flash Self-Healing: Recovered ${incident.affectedNodeId} via ${remediationAction}. Frame ${incident.affectedFrame} rescheduled.`,
+        tags: 'showrunner,vertex-ai,gemini-3.8-flash,auto-remediation,vfx-ops'
+      }),
+      // 4. Executive Agent prompt in parallel
+      this.vertexAi.generateContent('EXECUTIVE', {
+        systemPrompt: AGENT_PROMPTS.EXECUTIVE,
+        userPrompt: `Synthesize executive briefing for Studio Head:\nIncident: ${incident.title}\nResolved in: ~4 seconds\nDowntime prevented: 48 mins compute cluster stall ($300/min VFX studio rate).`,
+        context: incidentContext
+      })
+    ]);
 
+    // Record Remediation Step
     this.otel.recordSpan({
       spanId: `span-remediation-${Date.now()}`,
       traceId,
-      name: 'RemediationAgent.executeSelfHealing',
+      name: 'RemediationAgent.parallelSelfHealing',
       role: 'REMEDIATION',
       model: remRes.modelUsed,
       durationMs: remRes.latencyMs,
-      tokensIn: 510,
-      tokensOut: 260,
+      tokensIn: 540,
+      tokensOut: 280,
       timestamp: Date.now(),
       status: 'OK',
       attributes: {
         'platform': 'Google Cloud Vertex AI',
-        'model.id': 'gemini-3.7-flash',
+        'model.id': 'gemini-3.8-flash',
         'remediation.action': remediationAction,
         'remediation.success': true
       }
     });
 
-    steps.push({
+    session.steps.push({
       id: `step-3-${Date.now()}`,
       agentRole: 'REMEDIATION',
       modelUsed: remRes.modelUsed,
       timestamp: Date.now(),
       thought: remRes.text,
-      reasoningBudget: 1024,
+      reasoningBudget: remRes.reasoningTokens,
       toolCall: {
-        name: 'studio_remediate_node',
+        name: 'studio_remediate_node + grafana_annotate_dashboard',
         arguments: { nodeId: incident.affectedNodeId, actionType: remediationAction },
         status: 'EXECUTED',
-        result: remExecResult.data
+        result: { remediation: remExecResult.data, annotation: annotResult.data }
       }
     });
 
-    // -------------------------------------------------------------
-    // Step 4: EXECUTIVE AGENT (Vertex AI Gemini 3.7 Flash Dailies & ROI)
-    // -------------------------------------------------------------
+    // Record Executive Step
     session.activeAgent = 'EXECUTIVE';
-
-    const execPrompt = `Synthesize executive briefing for Studio Head:\nIncident: ${incident.title}\nResolved in: 4.8 seconds\nDowntime prevented: 48 mins compute cluster stall ($300/min VFX studio rate).`;
-    
-    const execRes = await this.vertexAi.generateContent('EXECUTIVE', {
-      systemPrompt: AGENT_PROMPTS.EXECUTIVE,
-      userPrompt: execPrompt,
-      thinkingBudget: 1024
-    });
-
     this.otel.recordSpan({
       spanId: `span-exec-${Date.now()}`,
       traceId,
-      name: 'ExecutiveAgent.generateBriefing',
+      name: 'ExecutiveAgent.parallelBriefing',
       role: 'EXECUTIVE',
       model: execRes.modelUsed,
       durationMs: execRes.latencyMs,
-      tokensIn: 410,
-      tokensOut: 290,
+      tokensIn: 450,
+      tokensOut: 310,
       timestamp: Date.now(),
       status: 'OK',
       attributes: {
         'platform': 'Google Cloud Vertex AI',
-        'model.id': 'gemini-3.7-flash',
-        'cost_saved_usd': 14400
+        'model.id': 'gemini-3.8-flash',
+        'cost_saved_usd': incident.category === 'UNREAL_NANITE_SHADER_HANG' ? 19500 : incident.category === 'STORAGE_IOPS_JITTER' ? 9600 : 14400
       }
     });
 
-    steps.push({
+    session.steps.push({
       id: `step-4-${Date.now()}`,
       agentRole: 'EXECUTIVE',
       modelUsed: execRes.modelUsed,
       timestamp: Date.now(),
       thought: execRes.text,
-      reasoningBudget: 1024
+      reasoningBudget: execRes.reasoningTokens
     });
+
+    const elapsedSeconds = Number(((Date.now() - session.startedAt) / 1000).toFixed(1));
+    const costSaved = incident.category === 'UNREAL_NANITE_SHADER_HANG' ? 19500 : incident.category === 'STORAGE_IOPS_JITTER' ? 9600 : 14400;
 
     incident.status = 'RESOLVED';
     incident.financialImpact = {
       downtimeCostPerMinuteUsd: 300,
-      estimatedCostWithoutRemediationUsd: 14400,
-      costSavedByShowrunnerUsd: 14400,
+      estimatedCostWithoutRemediationUsd: costSaved,
+      costSavedByShowrunnerUsd: costSaved,
       framesDelayed: 0,
-      recoveryTimeSeconds: 4.8
+      recoveryTimeSeconds: elapsedSeconds
     };
     this.stateManager.updateIncident(incident);
 

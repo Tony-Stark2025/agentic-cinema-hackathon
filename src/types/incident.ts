@@ -3,6 +3,7 @@ export type IncidentSeverity = 'P1_CRITICAL' | 'P2_HIGH' | 'P3_MEDIUM' | 'P4_LOW
 export type IncidentCategory = 
   | 'CUDA_OOM_MEMORY_LEAK' 
   | 'UNREAL_NANITE_SHADER_HANG' 
+  | 'STORAGE_IOPS_JITTER'
   | 'ASSET_CACHE_CORRUPTION' 
   | 'TILE_RASTER_TIMEOUT' 
   | 'COMPOSITOR_COLOR_MISMATCH';
@@ -16,7 +17,7 @@ export interface StudioIncident {
   affectedShot: string;
   affectedFrame: number;
   detectedAt: number;
-  status: 'DETECTED' | 'INVESTIGATING' | 'DIAGNOSED' | 'REMEDIATING' | 'RESOLVED';
+  status: 'DETECTED' | 'INVESTIGATING' | 'DIAGNOSED' | 'AWAITING_APPROVAL' | 'REMEDIATING' | 'RESOLVED';
   
   // Agentic Root-Cause & Action Plan
   rootCauseAnalysis?: {

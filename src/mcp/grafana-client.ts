@@ -125,6 +125,20 @@ export class GrafanaMcpClient {
         }
       },
       {
+        name: 'compute_telemetry_analytics',
+        description: 'Compute deterministic statistical analytics for a GPU node: memory leak velocity (dV/dt MB/s), 16-node cluster Z-scores for VRAM and thermal junction temperatures.',
+        parameters: {
+          type: 'object',
+          properties: {
+            nodeId: {
+              type: 'string',
+              description: 'Target GPU node ID (e.g., "gpu-node-04")'
+            }
+          },
+          required: ['nodeId']
+        }
+      },
+      {
         name: 'studio_remediate_node',
         description: 'Execute an automated self-healing action on a GPU render node (flush VRAM memory pool, downscale render tile size, failover job, hot-reload shader).',
         parameters: {
@@ -163,11 +177,15 @@ export class GrafanaMcpClient {
       case 'grafana_query_metrics': {
         const promql = String(args.promql || '');
         const criticalNode = snapshot.nodes.find(n => n.status === 'CRITICAL');
+        const clusterAnalytics = this.stateManager.getClusterAnalytics();
+        const targetEvaluation = criticalNode ? this.stateManager.getNodeEvaluation(criticalNode.id) : null;
+
         return {
           success: true,
           data: {
             query: promql,
             metricSource: this.isLiveGrafanaConnected() ? 'Grafana Cloud (Mimir Live)' : 'Studio Cluster Prometheus Engine',
+            clusterVramMean: clusterAnalytics.clusterMeanVramRatio,
             result: snapshot.nodes.map(n => ({
               node: n.id,
               gpuModel: n.gpuModel,
@@ -176,13 +194,31 @@ export class GrafanaMcpClient {
               temperatureC: n.temperatureC,
               status: n.status
             })),
-            anomaliesDetected: criticalNode ? [
+            targetNodeAnalytics: targetEvaluation,
+            anomaliesDetected: targetEvaluation && targetEvaluation.severity !== 'NORMAL' ? [
               {
-                node: criticalNode.id,
-                severity: 'CRITICAL',
-                message: `VRAM utilization at ${(criticalNode.vramUsedGb / criticalNode.vramTotalGb * 100).toFixed(1)}% on ${criticalNode.id} exceeding threshold (95%)`
+                node: targetEvaluation.nodeId,
+                severity: targetEvaluation.severity,
+                vramVelocityMbPerSec: targetEvaluation.vramVelocityMbPerSec,
+                vramZScore: targetEvaluation.vramZScore,
+                temperatureZScore: targetEvaluation.temperatureZScore,
+                message: targetEvaluation.diagnosticNote
               }
             ] : []
+          }
+        };
+      }
+
+      case 'compute_telemetry_analytics': {
+        const nodeId = String(args.nodeId || 'gpu-node-04');
+        const nodeEvaluation = this.stateManager.getNodeEvaluation(nodeId);
+        const clusterAnalytics = this.stateManager.getClusterAnalytics();
+        return {
+          success: true,
+          data: {
+            nodeId,
+            nodeEvaluation,
+            clusterAnalytics
           }
         };
       }
@@ -237,7 +273,7 @@ export class GrafanaMcpClient {
             annotationId: `annot-${Date.now().toString(36)}`,
             dashboardId: args.dashboardId,
             text: args.text,
-            tags: args.tags || 'showrunner,vertex-ai,gemini-3.7-flash,auto-remediation',
+            tags: args.tags || 'showrunner,vertex-ai,gemini-3.8-flash,auto-remediation,vfx-ops',
             timestamp: Date.now(),
             status: 'ANNOTATED_TO_GRAFANA'
           }

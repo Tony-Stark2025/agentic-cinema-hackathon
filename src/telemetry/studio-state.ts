@@ -3,6 +3,7 @@ import { StudioIncident } from '../types/incident';
 import { MetricsGenerator } from './metrics-generator';
 import { LogsGenerator } from './logs-generator';
 import { TraceGenerator } from './trace-generator';
+import { TelemetryAnalyticsEngine, TelemetryMetricSample, NodeAnomalyEvaluation } from './analytics-engine';
 
 export class StudioStateManager {
   private static instance: StudioStateManager;
@@ -12,9 +13,12 @@ export class StudioStateManager {
   private logs: StudioLogEntry[] = [];
   private traces: DistributedTraceSpan[] = [];
   private activeIncidents: StudioIncident[] = [];
+  private nodeHistory: Map<string, TelemetryMetricSample[]> = new Map();
+  private analyticsEngine: TelemetryAnalyticsEngine;
   private lastUpdated: number = Date.now();
 
   private constructor() {
+    this.analyticsEngine = TelemetryAnalyticsEngine.getInstance();
     this.resetToHealthy();
   }
 
@@ -31,6 +35,18 @@ export class StudioStateManager {
     this.logs = LogsGenerator.generateBaselineLogs();
     this.traces = TraceGenerator.generateRenderPipelineTrace();
     this.activeIncidents = [];
+    this.nodeHistory.clear();
+
+    const now = Date.now();
+    for (const node of this.nodes) {
+      this.nodeHistory.set(node.id, [
+        { timestamp: now - 30000, vramUsedGb: node.vramUsedGb - 1.2, temperatureC: node.temperatureC - 2 },
+        { timestamp: now - 20000, vramUsedGb: node.vramUsedGb - 0.6, temperatureC: node.temperatureC - 1 },
+        { timestamp: now - 10000, vramUsedGb: node.vramUsedGb - 0.1, temperatureC: node.temperatureC },
+        { timestamp: now, vramUsedGb: node.vramUsedGb, temperatureC: node.temperatureC }
+      ]);
+    }
+
     this.lastUpdated = Date.now();
   }
 
@@ -56,25 +72,91 @@ export class StudioStateManager {
     };
   }
 
+  public getNodeEvaluation(nodeId: string): NodeAnomalyEvaluation {
+    return this.analyticsEngine.evaluateNode(nodeId, this.nodes, this.nodeHistory.get(nodeId) || []);
+  }
+
+  public getClusterAnalytics(): {
+    anomalies: NodeAnomalyEvaluation[];
+    criticalCount: number;
+    warningCount: number;
+    clusterMeanVramRatio: number;
+    traceBottleneck: any;
+  } {
+    const evaluations = this.nodes.map(n => this.getNodeEvaluation(n.id));
+    const anomalies = evaluations.filter(e => e.severity !== 'NORMAL');
+    const criticalCount = evaluations.filter(e => e.severity === 'CRITICAL').length;
+    const warningCount = evaluations.filter(e => e.severity === 'WARNING').length;
+    
+    const vramRatios = this.nodes.map(n => n.vramUsedGb / n.vramTotalGb);
+    const clusterMeanVramRatio = Number((vramRatios.reduce((a, b) => a + b, 0) / vramRatios.length).toFixed(4));
+    
+    const traceAnalysis = this.analyticsEngine.analyzeTraceSpans(this.traces);
+
+    return {
+      anomalies,
+      criticalCount,
+      warningCount,
+      clusterMeanVramRatio,
+      traceBottleneck: traceAnalysis.bottleneckSpan
+    };
+  }
+
   public getActiveIncidents(): StudioIncident[] {
     return this.activeIncidents;
   }
 
-  public triggerIncident(category: 'CUDA_OOM_MEMORY_LEAK' | 'UNREAL_NANITE_SHADER_HANG' = 'CUDA_OOM_MEMORY_LEAK', targetNodeId = 'gpu-node-04'): StudioIncident {
+  public triggerIncident(
+    category: 'CUDA_OOM_MEMORY_LEAK' | 'UNREAL_NANITE_SHADER_HANG' | 'STORAGE_IOPS_JITTER' = 'CUDA_OOM_MEMORY_LEAK',
+    targetNodeId = 'gpu-node-04'
+  ): StudioIncident {
     const targetNode = this.nodes.find(n => n.id === targetNodeId) || this.nodes[3];
-    targetNode.status = 'CRITICAL';
-    targetNode.vramUsedGb = targetNode.vramTotalGb - 0.2; // 99% VRAM
-    targetNode.gpuUtilizationPct = 99;
-    targetNode.temperatureC = 84;
+    const now = Date.now();
+
+    if (category === 'CUDA_OOM_MEMORY_LEAK') {
+      targetNode.status = 'CRITICAL';
+      targetNode.vramUsedGb = Number((targetNode.vramTotalGb - 0.2).toFixed(1)); // 99.4% VRAM
+      targetNode.gpuUtilizationPct = 99;
+      targetNode.temperatureC = 84;
+
+      // Create high-velocity memory leak history (+480 MB/s)
+      this.nodeHistory.set(targetNode.id, [
+        { timestamp: now - 30000, vramUsedGb: 32.0, temperatureC: 66 },
+        { timestamp: now - 20000, vramUsedGb: 38.5, temperatureC: 72 },
+        { timestamp: now - 10000, vramUsedGb: 43.8, temperatureC: 79 },
+        { timestamp: now, vramUsedGb: targetNode.vramUsedGb, temperatureC: 84 }
+      ]);
+    } else if (category === 'UNREAL_NANITE_SHADER_HANG') {
+      targetNode.status = 'CRITICAL';
+      targetNode.vramUsedGb = Number((targetNode.vramTotalGb * 0.88).toFixed(1));
+      targetNode.gpuUtilizationPct = 100;
+      targetNode.temperatureC = 88; // Thermal throttling
+
+      this.nodeHistory.set(targetNode.id, [
+        { timestamp: now - 30000, vramUsedGb: targetNode.vramUsedGb, temperatureC: 70 },
+        { timestamp: now - 20000, vramUsedGb: targetNode.vramUsedGb, temperatureC: 76 },
+        { timestamp: now - 10000, vramUsedGb: targetNode.vramUsedGb, temperatureC: 83 },
+        { timestamp: now, vramUsedGb: targetNode.vramUsedGb, temperatureC: 88 }
+      ]);
+    } else {
+      // Storage IOPS jitter / Demuxer starvation
+      targetNode.status = 'WARNING';
+      targetNode.gpuUtilizationPct = 12; // Starved for frames
+      targetNode.temperatureC = 55;
+    }
 
     const incidentId = `inc-${Date.now().toString(36)}`;
+    const titles: Record<string, string> = {
+      'CUDA_OOM_MEMORY_LEAK': `CUDA VRAM OOM Memory Spike on ${targetNode.id} (Arrakis 8K Raymarching)`,
+      'UNREAL_NANITE_SHADER_HANG': `Unreal Engine Nanite Shader Compilation Deadlock on ${targetNode.id}`,
+      'STORAGE_IOPS_JITTER': `NFS Storage IOPS Demuxer Starvation on ${targetNode.id}`
+    };
+
     const newIncident: StudioIncident = {
       id: incidentId,
-      title: category === 'CUDA_OOM_MEMORY_LEAK' 
-        ? `CUDA VRAM OOM Memory Spike on ${targetNode.id}` 
-        : `Unreal Engine Nanite Shader Compilation Hang on ${targetNode.id}`,
-      category,
-      severity: 'P1_CRITICAL',
+      title: titles[category] || `Incident on ${targetNode.id}`,
+      category: category as any,
+      severity: category === 'STORAGE_IOPS_JITTER' ? 'P2_HIGH' : 'P1_CRITICAL',
       affectedNodeId: targetNode.id,
       affectedShot: targetNode.currentJob?.shot || 'SH_04_CITY_BATTLE_04',
       affectedFrame: targetNode.currentJob?.frame || 842,
@@ -83,7 +165,7 @@ export class StudioStateManager {
     };
 
     // Inject incident logs and error traces
-    const incidentLogs = LogsGenerator.generateIncidentLogs(targetNode.id, category);
+    const incidentLogs = LogsGenerator.generateIncidentLogs(targetNode.id, category as any);
     this.logs.push(...incidentLogs);
     this.traces = TraceGenerator.generateRenderPipelineTrace(`trace-err-${incidentId}`, true, targetNode.id);
     
@@ -110,9 +192,15 @@ export class StudioStateManager {
     }
 
     node.status = 'HEALTHY';
-    node.vramUsedGb = Math.floor(node.vramTotalGb * 0.42);
-    node.gpuUtilizationPct = 72;
+    node.vramUsedGb = Math.floor(node.vramTotalGb * 0.38);
+    node.gpuUtilizationPct = 70;
     node.temperatureC = 64;
+
+    const now = Date.now();
+    this.nodeHistory.set(nodeId, [
+      { timestamp: now - 15000, vramUsedGb: node.vramUsedGb + 2, temperatureC: 68 },
+      { timestamp: now, vramUsedGb: node.vramUsedGb, temperatureC: 64 }
+    ]);
 
     // Log the remediation action in Loki logs
     this.logs.push({
@@ -121,7 +209,7 @@ export class StudioStateManager {
       level: 'INFO',
       nodeId,
       service: 'render-dispatcher',
-      message: `REMEDIATION SUCCESS: Executed [${actionType}] on ${nodeId}. VRAM flushed, tile size halved (128x128), and frame 842 rescheduled successfully.`
+      message: `REMEDIATION SUCCESS: Executed [${actionType}] on ${nodeId}. VRAM flushed, tile size downscaled ($4\\times4 \\rightarrow 8\\times8$), frame 842 rescheduled.`
     });
 
     // Mark active incident as resolved
