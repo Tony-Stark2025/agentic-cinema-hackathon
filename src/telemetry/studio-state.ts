@@ -224,4 +224,49 @@ export class StudioStateManager {
       message: `Node ${nodeId} remediated via ${actionType}. Cluster load normalized.`
     };
   }
+
+  public ingestExternalGpuTelemetry(data: {
+    nodeId?: string;
+    vramUsedGb: number;
+    vramTotalGb?: number;
+    temperatureC?: number;
+    powerWatts?: number;
+    gpuUtilizationPct?: number;
+    gpuModel?: string;
+  }): GpuNode {
+    const targetId = data.nodeId || 'gpu-node-01';
+    let targetNode = this.nodes.find(n => n.id === targetId);
+
+    if (!targetNode) {
+      targetNode = this.nodes[0];
+    }
+
+    targetNode.vramUsedGb = Number(data.vramUsedGb.toFixed(2));
+    if (data.vramTotalGb) targetNode.vramTotalGb = Number(data.vramTotalGb.toFixed(2));
+    if (data.temperatureC) targetNode.temperatureC = Math.round(data.temperatureC);
+    if (data.powerWatts) targetNode.powerWatts = Math.round(data.powerWatts);
+    if (data.gpuUtilizationPct !== undefined) targetNode.gpuUtilizationPct = Math.round(data.gpuUtilizationPct);
+    if (data.gpuModel) targetNode.gpuModel = data.gpuModel;
+
+    // Check if real GPU is hitting an OOM spike (> 92% VRAM)
+    const ratio = targetNode.vramUsedGb / targetNode.vramTotalGb;
+    if (ratio > 0.92 && targetNode.status !== 'CRITICAL') {
+      this.triggerIncident('CUDA_OOM_MEMORY_LEAK', targetNode.id);
+    } else if (ratio <= 0.85 && targetNode.status === 'CRITICAL') {
+      targetNode.status = 'HEALTHY';
+    }
+
+    // Append to rolling history for dV/dt calculus
+    const history = this.nodeHistory.get(targetNode.id) || [];
+    history.push({
+      timestamp: Date.now(),
+      vramUsedGb: targetNode.vramUsedGb,
+      temperatureC: targetNode.temperatureC
+    });
+    if (history.length > 20) history.shift();
+    this.nodeHistory.set(targetNode.id, history);
+
+    this.lastUpdated = Date.now();
+    return targetNode;
+  }
 }

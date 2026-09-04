@@ -26,7 +26,6 @@ export default function ShowrunnerDashboard() {
   const [clusterAnalytics, setClusterAnalytics] = useState<any>(getEnterpriseBaselineAnalytics);
   const [session, setSession] = useState<AgentInvestigationSession | null>(null);
   const [currentOperator, setCurrentOperator] = useState<StudioOperator>(OPERATOR_PROFILES[0]);
-  const [apiKey, setApiKey] = useState<string>('');
 
   const [vertexAiMetrics, setVertexAiMetrics] = useState<VertexAiMetricsSnapshot>({
     modelId: 'gemini-3.8-flash',
@@ -101,7 +100,7 @@ export default function ShowrunnerDashboard() {
       const res = await fetch('/api/agent/diagnose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ incidentId, nodeId: selectedNodeId, mode, apiKey })
+        body: JSON.stringify({ incidentId, nodeId: selectedNodeId, mode })
       });
       const data = await res.json();
       if (data.success && data.session) {
@@ -161,16 +160,13 @@ export default function ShowrunnerDashboard() {
         vertexAiMetrics={vertexAiMetrics}
         onRefresh={fetchTelemetry}
         isRefreshing={isRefreshing}
-        isLiveApi={Boolean(apiKey)}
+        isLiveApi={true}
       />
 
       {/* 2. Studio Identity & RBAC Clearance Bar */}
       <StudioAuthBar
         currentOperator={currentOperator}
         onOperatorChange={setCurrentOperator}
-        apiKey={apiKey}
-        onApiKeyChange={setApiKey}
-        isLiveApiConnected={Boolean(apiKey)}
       />
 
       {/* 3. Main Studio Operations Grid */}

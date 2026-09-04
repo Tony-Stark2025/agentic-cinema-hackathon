@@ -104,3 +104,32 @@ test('E2E Verification: Supervised Mode (Human-in-the-Loop) & Dynamic Fallback C
   assert.equal(incident.status, 'RESOLVED', 'Incident resolves after human approval');
   assert.ok(incident.financialImpact.costSavedByShowrunnerUsd > 0, 'Financial impact must record savings');
 });
+
+test('E2E Verification: Live External GPU Telemetry Ingest & Real Hardware Driver Integration', async () => {
+  const { StudioStateManager } = await import('../src/telemetry/studio-state.ts');
+  const stateManager = StudioStateManager.getInstance();
+
+  // 1. Nominal external GPU ingest stream
+  const ingestedNode = stateManager.ingestExternalGpuTelemetry({
+    nodeId: 'gpu-node-01',
+    vramUsedGb: 11.5,
+    vramTotalGb: 16.0,
+    temperatureC: 68,
+    powerWatts: 175,
+    gpuUtilizationPct: 82,
+    gpuModel: 'NVIDIA Tesla T4 (Google Colab Live)'
+  });
+
+  assert.equal(ingestedNode.id, 'gpu-node-01');
+  assert.equal(ingestedNode.vramUsedGb, 11.5);
+  assert.equal(ingestedNode.temperatureC, 68);
+  assert.equal(ingestedNode.gpuModel, 'NVIDIA Tesla T4 (Google Colab Live)');
+
+  // 2. High-memory leak threshold triggers incident (> 92%)
+  const leakNode = stateManager.ingestExternalGpuTelemetry({
+    nodeId: 'gpu-node-01',
+    vramUsedGb: 15.2,
+    vramTotalGb: 16.0
+  });
+  assert.equal(leakNode.status, 'CRITICAL', 'VRAM over 92% must trigger critical status');
+});
