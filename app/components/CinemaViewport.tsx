@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Film, Eye, Layers, Maximize2, AlertTriangle, CheckCircle2, Play, Pause, Activity } from 'lucide-react';
+import { Film, Eye, Layers, Maximize2, AlertTriangle, CheckCircle2, Play, Pause, Activity, X } from 'lucide-react';
 import { StudioIncident } from '@/src/types/incident';
 
 interface CinemaViewportProps {
@@ -16,9 +16,27 @@ export const CinemaViewport: React.FC<CinemaViewportProps> = ({
   const [viewMode, setViewMode] = useState<'BEAUTY' | 'TILES' | 'THERMAL'>('TILES');
   const [samples, setSamples] = useState(384);
   const [isLiveAnimating, setIsLiveAnimating] = useState(true);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(false);
+  const [lastResolvedId, setLastResolvedId] = useState<string | null>(null);
 
-  const isCritical = activeIncident && activeIncident.status !== 'RESOLVED';
-  const isResolved = activeIncident && activeIncident.status === 'RESOLVED';
+  const isCritical = Boolean(activeIncident && activeIncident.status !== 'RESOLVED');
+  const isResolved = Boolean(activeIncident && activeIncident.status === 'RESOLVED');
+
+  // Auto-manage banner appearance: show when resolved, auto-dismiss after 8s or on close
+  useEffect(() => {
+    if (isResolved && activeIncident?.id && activeIncident.id !== lastResolvedId) {
+      setIsBannerDismissed(false);
+      setLastResolvedId(activeIncident.id);
+
+      const timer = setTimeout(() => {
+        setIsBannerDismissed(true);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+    if (isCritical) {
+      setIsBannerDismissed(false);
+    }
+  }, [isResolved, isCritical, activeIncident?.id, lastResolvedId]);
 
   // Real-time progressive rendering simulation loop
   useEffect(() => {
@@ -253,32 +271,60 @@ export const CinemaViewport: React.FC<CinemaViewportProps> = ({
         )}
 
         {/* Live Incident Alert HUD Overlay */}
-        {isCritical && (
+        {isCritical && !isBannerDismissed && (
           <div className="absolute top-4 right-4 z-20 bg-rose-950/95 border-2 border-rose-500 rounded-lg p-3 shadow-2xl flex items-center gap-3 animate-bounce">
-            <AlertTriangle className="w-6 h-6 text-rose-400" />
-            <div>
+            <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0" />
+            <div className="pr-2">
               <div className="text-xs font-bold text-white uppercase tracking-wider">
-                VRAM Allocation Fault &bull; Tile 15
+                {activeIncident?.category === 'UNREAL_NANITE_SHADER_HANG'
+                  ? 'Shader Compilation Deadlock'
+                  : activeIncident?.category === 'STORAGE_IOPS_JITTER'
+                  ? 'Storage Demuxer Starvation'
+                  : 'VRAM Allocation Fault • Tile 15'}
               </div>
               <div className="text-[10px] text-rose-200">
-                gpu-node-04 memory high-water mark reached (47.8GB/48.0GB).
+                {activeIncident?.title || 'GPU memory high-water mark breached.'}
               </div>
             </div>
+            <button
+              onClick={() => setIsBannerDismissed(true)}
+              className="p-1 rounded text-rose-400 hover:text-white hover:bg-rose-900/60 transition-colors ml-auto"
+              title="Dismiss alert banner"
+              aria-label="Dismiss alert banner"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
         {/* Remediation Complete HUD Overlay */}
-        {isResolved && (
-          <div className="absolute top-4 right-4 z-20 bg-emerald-950/95 border-2 border-emerald-500 rounded-lg p-3 shadow-2xl flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-            <div>
+        {isResolved && !isBannerDismissed && (
+          <div className="absolute top-4 right-4 z-20 bg-emerald-950/95 border-2 border-emerald-500 rounded-lg p-3 shadow-2xl flex items-center gap-3 transition-all duration-300">
+            <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+            <div className="pr-2">
               <div className="text-xs font-bold text-white uppercase tracking-wider">
-                Tile Split Remediation Complete
+                {activeIncident?.category === 'UNREAL_NANITE_SHADER_HANG'
+                  ? 'Shader Hot-Reload Complete'
+                  : activeIncident?.category === 'STORAGE_IOPS_JITTER'
+                  ? 'Storage Failover Complete'
+                  : 'Tile Split Remediation Complete'}
               </div>
               <div className="text-[10px] text-emerald-200">
-                Frame 842 re-allocated to 8x8 sub-tiles across node-04 and node-05.
+                {activeIncident?.category === 'UNREAL_NANITE_SHADER_HANG'
+                  ? `Material shader permutation bytecode hot-reloaded on ${activeIncident.affectedNodeId}.`
+                  : activeIncident?.category === 'STORAGE_IOPS_JITTER'
+                  ? `Multipath I/O failed over to secondary NVMe tier on ${activeIncident.affectedNodeId}.`
+                  : 'Frame 842 re-allocated to 8x8 sub-tiles across node-04 and node-05.'}
               </div>
             </div>
+            <button
+              onClick={() => setIsBannerDismissed(true)}
+              className="p-1 rounded text-emerald-400 hover:text-white hover:bg-emerald-800/60 transition-colors ml-auto"
+              title="Dismiss remediation banner"
+              aria-label="Dismiss remediation banner"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
       </div>

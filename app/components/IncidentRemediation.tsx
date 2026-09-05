@@ -154,10 +154,11 @@ export const IncidentRemediation: React.FC<IncidentRemediationProps> = ({
                 onResetCluster();
               }}
               disabled={isLoading}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border-2 border-slate-600 text-xs transition-all active:scale-95"
-              title="Reset Cluster to Nominal"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-2 border-slate-600 text-xs transition-all active:scale-95 font-medium"
+              title="Reset Cluster to Nominal (Clears Incidents &amp; Restores Healthy Telemetry)"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset
             </button>
           </div>
         </div>
