@@ -66,7 +66,7 @@ Showrunner is an enterprise-grade autonomous Studio Operations & Observability C
 
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Live Grafana MCP & Telemetry REST Client | Eliminate mock MCP client; build dual-engine `@modelcontextprotocol/sdk` + direct REST driver for PromQL, LogQL, Tempo, and Annotations. | none | PLANNED |
+| M1 | Live Grafana MCP & Telemetry REST Client | Eliminate mock MCP client; build dual-engine `@modelcontextprotocol/sdk` + direct REST driver for PromQL, LogQL, Tempo, and Annotations. | none | COMPLETE |
 | M2 | Active Media Processing Engine & OTel Pipeline | Build live 16-worker background engine (FFmpeg + matrix transforms), `@opentelemetry/sdk-node` pipeline, incident injector, and process self-healing. | none | PLANNED |
 | M3 | Gemini 3.x Flash Multi-Agent Crew & Function Calling | Implement 5-model distributed pool, 30s circuit breaker, 4-agent autonomous pipeline, native tool calling, and AI observability. | M1, M2 | PLANNED |
 | M4 | Full-Stack Integration & Google Cloud Run Deployment | Multi-stage Dockerfile with FFmpeg, standalone Next.js build, UI wiring, Cloud Run deployment to `gen-lang-client-0942141479`, and live probes. | M1, M2, M3 | PLANNED |

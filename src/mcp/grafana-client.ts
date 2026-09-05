@@ -1,27 +1,27 @@
 import { StudioStateManager } from '../telemetry/studio-state';
+import { GrafanaRestDriver } from './grafana-rest-driver';
+import { McpProtocolBridge } from './mcp-protocol-bridge';
+import type { GrafanaMcpToolDefinition, McpExecutionResult } from '../types/grafana';
 
-export interface GrafanaMcpToolDefinition {
-  name: string;
-  description: string;
-  parameters: {
-    type: 'object';
-    properties: Record<string, { type: string; description: string; enum?: string[] }>;
-    required: string[];
-  };
-}
+export type { GrafanaMcpToolDefinition, McpExecutionResult };
 
 export class GrafanaMcpClient {
   private static instance: GrafanaMcpClient;
   private stateManager: StudioStateManager;
-  private grafanaUrl: string;
-  private grafanaToken: string;
-  private mcpEndpoint: string;
+  private restDriver: GrafanaRestDriver;
+  private mcpBridge: McpProtocolBridge;
 
   private constructor() {
     this.stateManager = StudioStateManager.getInstance();
-    this.grafanaUrl = process.env.GRAFANA_CLOUD_URL || '';
-    this.grafanaToken = process.env.GRAFANA_SERVICE_TOKEN || process.env.GRAFANA_API_KEY || '';
-    this.mcpEndpoint = process.env.GRAFANA_MCP_ENDPOINT || 'https://mcp.grafana.com/mcp';
+    this.restDriver = GrafanaRestDriver.getInstance();
+    this.mcpBridge = McpProtocolBridge.getInstance();
+
+    // Asynchronously attempt to connect to remote MCP bridge if available
+    if (process.env.GRAFANA_MCP_ENDPOINT) {
+      this.mcpBridge.connect().catch(() => {
+        // Handled internally in McpProtocolBridge
+      });
+    }
   }
 
   public static getInstance(): GrafanaMcpClient {
@@ -32,11 +32,37 @@ export class GrafanaMcpClient {
   }
 
   public isLiveGrafanaConnected(): boolean {
-    return Boolean(this.grafanaUrl && this.grafanaToken);
+    return this.mcpBridge.isConnected() || this.restDriver.isConfigured();
+  }
+
+  public getStatus(): {
+    mcpConnected: boolean;
+    mcpEndpoint: string;
+    restConfigured: boolean;
+    grafanaUrl: string;
+    mode: 'MCP_PROTOCOL' | 'GRAFANA_CLOUD_REST' | 'STUDIO_LOCAL_HARNESS';
+  } {
+    const mcpConnected = this.mcpBridge.isConnected();
+    const restConfigured = this.restDriver.isConfigured();
+
+    let mode: 'MCP_PROTOCOL' | 'GRAFANA_CLOUD_REST' | 'STUDIO_LOCAL_HARNESS' = 'STUDIO_LOCAL_HARNESS';
+    if (mcpConnected) {
+      mode = 'MCP_PROTOCOL';
+    } else if (restConfigured) {
+      mode = 'GRAFANA_CLOUD_REST';
+    }
+
+    return {
+      mcpConnected,
+      mcpEndpoint: this.mcpBridge.getEndpoint(),
+      restConfigured,
+      grafanaUrl: this.restDriver.getBaseUrl(),
+      mode
+    };
   }
 
   public getAvailableTools(): GrafanaMcpToolDefinition[] {
-    return [
+    const baseTools: GrafanaMcpToolDefinition[] = [
       {
         name: 'grafana_query_metrics',
         description: 'Execute a PromQL query against Grafana Mimir/Prometheus to fetch GPU VRAM utilization, frame render latency, and cluster health metrics.',
@@ -118,7 +144,7 @@ export class GrafanaMcpClient {
             },
             tags: {
               type: 'string',
-              description: 'Comma-separated tags (e.g., "showrunner,vertex-ai,gemini-3.7-flash,auto-remediation")'
+              description: 'Comma-separated tags (e.g., "showrunner,vertex-ai,gemini-3.8-flash,auto-remediation")'
             }
           },
           required: ['dashboardId', 'text']
@@ -158,19 +184,104 @@ export class GrafanaMcpClient {
         }
       }
     ];
-  }
 
-  public async executeTool(toolName: string, args: Record<string, unknown>): Promise<{ success: boolean; data: unknown }> {
-    // If live Grafana Cloud instance is configured, try live REST/MCP endpoints
-    if (this.isLiveGrafanaConnected()) {
-      try {
-        const liveResult = await this.executeLiveGrafanaRest(toolName, args);
-        if (liveResult) return liveResult;
-      } catch (err) {
-        console.warn(`[GrafanaMcpClient] Live Grafana call failed (${err instanceof Error ? err.message : String(err)}). Falling back to active studio engine.`);
+    // Merge any remote tools dynamically discovered from the MCP protocol bridge
+    const remoteTools = this.mcpBridge.getDiscoveredTools();
+    const existingNames = new Set(baseTools.map(t => t.name));
+    for (const rt of remoteTools) {
+      if (!existingNames.has(rt.name)) {
+        baseTools.push(rt);
       }
     }
 
+    return baseTools;
+  }
+
+  public async executeTool(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<McpExecutionResult> {
+    const startTime = Date.now();
+
+    // 1. Try MCP Protocol Bridge if connected
+    if (this.mcpBridge.isConnected()) {
+      try {
+        const mcpResult = await this.mcpBridge.callTool(toolName, args);
+        if (mcpResult?.success) {
+          return {
+            ...mcpResult,
+            source: 'mcp-protocol',
+            latencyMs: Date.now() - startTime
+          };
+        }
+      } catch (err) {
+        console.warn(`[GrafanaMcpClient] MCP Protocol call for ${toolName} failed (${err instanceof Error ? err.message : String(err)}). Falling back.`);
+      }
+    }
+
+    // 2. Try Direct Grafana Cloud REST Driver if configured
+    if (this.restDriver.isConfigured()) {
+      try {
+        const restResult = await this.executeViaRestDriver(toolName, args);
+        if (restResult) {
+          return {
+            ...restResult,
+            source: 'grafana-cloud-rest',
+            latencyMs: Date.now() - startTime
+          };
+        }
+      } catch (err) {
+        console.warn(`[GrafanaMcpClient] Live REST Driver call for ${toolName} failed (${err instanceof Error ? err.message : String(err)}). Falling back to studio engine.`);
+      }
+    }
+
+    // 3. Resilient Studio Telemetry Engine Fallback
+    const fallbackResult = this.executeViaStudioEngine(toolName, args);
+    return {
+      ...fallbackResult,
+      source: 'studio-telemetry-engine',
+      latencyMs: Date.now() - startTime
+    };
+  }
+
+  private async executeViaRestDriver(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<{ success: boolean; data: unknown } | null> {
+    switch (toolName) {
+      case 'grafana_query_metrics': {
+        const promql = String(args.promql || '');
+        const timeRange = String(args.timeRange || '5m');
+        return await this.restDriver.queryMetrics(promql, timeRange);
+      }
+      case 'grafana_query_logs': {
+        const logql = String(args.logql || '');
+        const limit = Number(args.limit || 20);
+        return await this.restDriver.queryLogs(logql, limit);
+      }
+      case 'grafana_get_trace': {
+        const traceId = String(args.traceId || '');
+        return await this.restDriver.getTrace(traceId);
+      }
+      case 'grafana_list_alerts': {
+        const severity = args.severity ? String(args.severity) : undefined;
+        return await this.restDriver.listAlerts(severity);
+      }
+      case 'grafana_annotate_dashboard': {
+        const dashboardId = String(args.dashboardId || 'vfx-render-farm-live');
+        const text = String(args.text || '');
+        const tags = args.tags as string | string[] | undefined;
+        return await this.restDriver.annotateDashboard(dashboardId, text, tags);
+      }
+      default:
+        return null;
+    }
+  }
+
+  private executeViaStudioEngine(
+    toolName: string,
+    args: Record<string, unknown>
+  ): { success: boolean; data: unknown } {
     const snapshot = this.stateManager.getSnapshot();
 
     switch (toolName) {
@@ -301,28 +412,5 @@ export class GrafanaMcpClient {
           data: `Unknown tool: ${toolName}`
         };
     }
-  }
-
-  private async executeLiveGrafanaRest(toolName: string, args: Record<string, unknown>): Promise<{ success: boolean; data: unknown } | null> {
-    if (toolName === 'grafana_annotate_dashboard') {
-      const endpoint = `${this.grafanaUrl.replace(/\/$/, '')}/api/annotations`;
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.grafanaToken}`
-        },
-        body: JSON.stringify({
-          dashboardUID: args.dashboardId,
-          text: args.text,
-          tags: typeof args.tags === 'string' ? args.tags.split(',') : ['showrunner', 'vertex-ai', 'gemini-3.7-flash']
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return { success: true, data: { ...data, status: 'LIVE_GRAFANA_ANNOTATION_POSTED' } };
-      }
-    }
-    return null;
   }
 }

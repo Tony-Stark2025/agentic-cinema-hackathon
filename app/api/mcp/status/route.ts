@@ -7,11 +7,20 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const mcpClient = GrafanaMcpClient.getInstance();
   const tools = mcpClient.getAvailableTools();
+  const status = mcpClient.getStatus();
 
   return NextResponse.json({
     connected: true,
     protocol: 'Model Context Protocol (MCP) v1.0',
-    endpoint: process.env.GRAFANA_MCP_ENDPOINT || 'https://mcp.grafana.com/mcp (or local studio harness)',
+    mode: status.mode,
+    mcpBridge: {
+      connected: status.mcpConnected,
+      endpoint: status.mcpEndpoint
+    },
+    grafanaRestDriver: {
+      configured: status.restConfigured,
+      baseUrl: status.grafanaUrl || null
+    },
     toolsAvailable: tools.length,
     tools: tools.map(t => ({
       name: t.name,
