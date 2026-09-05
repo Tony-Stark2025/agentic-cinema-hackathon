@@ -21,11 +21,13 @@ export const StudioCopilotChat: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (messages.length > 1 && chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages, isLoading]);
 
   const handleSendMessage = async (userText?: string) => {
     const textToSend = userText || input;
@@ -116,7 +118,7 @@ export const StudioCopilotChat: React.FC = () => {
       </div>
 
       {/* Message Stream */}
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[310px]">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -150,7 +152,6 @@ export const StudioCopilotChat: React.FC = () => {
             <span className="text-xs">Gemini 3.8 Flash synthesizing telemetry context...</span>
           </div>
         )}
-        <div ref={scrollRef} />
       </div>
 
       {/* Chat Input */}

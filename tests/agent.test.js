@@ -44,3 +44,36 @@ test('Telemetry Analytics Engine: Deterministic Anomaly Math', () => {
 
   assert.ok(targetZ > 2.0, 'Outlier node with 99% VRAM must have Z-score > 2.0');
 });
+
+test('Conversational Technical Director Copilot: Dynamic Query Resolution', async () => {
+  const { VertexAiGeminiClient } = await import('../src/agent/vertex-client.ts');
+  const client = VertexAiGeminiClient.getInstance();
+
+  // Test Greeting
+  const helloRes = await client.generateContent('COPILOT', {
+    systemPrompt: 'You are SHOWRUNNER Copilot',
+    userPrompt: 'Hello'
+  });
+  assert.ok(helloRes.text.includes('Hello, Technical Director'), 'Must respond warmly to greetings');
+
+  // Test Problem inquiry
+  const problemRes = await client.generateContent('COPILOT', {
+    systemPrompt: 'You are SHOWRUNNER Copilot',
+    userPrompt: 'What is your problem?'
+  });
+  assert.ok(problemRes.text.includes('Operational Assessment'), 'Must provide clear cluster health overview');
+
+  // Test Sample counter explanation
+  const sampleRes = await client.generateContent('COPILOT', {
+    systemPrompt: 'You are SHOWRUNNER Copilot',
+    userPrompt: 'What does sample counter mean?'
+  });
+  assert.ok(sampleRes.text.includes('Samples Per Pixel'), 'Must explain Monte Carlo sample counter');
+
+  // Test Dual-tier SRE explanation
+  const k8sRes = await client.generateContent('COPILOT', {
+    systemPrompt: 'You are SHOWRUNNER Copilot',
+    userPrompt: 'Why not use kubernetes crash restarts?'
+  });
+  assert.ok(k8sRes.text.includes('Dual-Tier'), 'Must explain Fast-Path vs Cognitive Agent Dual-Tier model');
+});

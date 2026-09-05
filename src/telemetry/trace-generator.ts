@@ -48,7 +48,7 @@ export class TraceGenerator {
         parentSpanId: rootSpanId,
         serviceName: 'unreal-nanite-compiler',
         operationName: 'CompileMaterialShaders',
-        startTime: startTime + 550,
+        startTime: startTime + 530,
         durationMs: 620,
         statusCode: 'OK',
         attributes: {
@@ -62,8 +62,8 @@ export class TraceGenerator {
         parentSpanId: rootSpanId,
         serviceName: 'blender-cycles-engine',
         operationName: `ComputeBvhRayIntersections [${errorNode}]`,
-        startTime: startTime + 1200,
-        durationMs: hasError ? 2400 : 2800,
+        startTime: startTime + 1150,
+        durationMs: hasError ? 2400 : 2650,
         statusCode: hasError ? 'ERROR' : 'OK',
         errorMessage: hasError ? 'CUDA_ERROR_OUT_OF_MEMORY: VRAM allocation of 4GB exceeded 48GB buffer limit' : undefined,
         attributes: {

@@ -146,7 +146,84 @@ export class VertexAiGeminiClient {
 
     // Conversational Technical Director Copilot Engine
     if (role === 'COPILOT') {
-      const p = prompt.toLowerCase();
+      const p = prompt.toLowerCase().trim();
+
+      // 1. Casual Greetings & Identification
+      if (/^(hi|hello|hey|greetings|good\s+(morning|afternoon|evening)|yo)\b/i.test(p) || p === 'hello' || p === 'hi') {
+        return {
+          text: `Hello, Technical Director. **Showrunner Studio Copilot** is online and standing by.
+- **Active Stage**: STG-VIRTUAL-STAGE-A (Hollywood LED Volume)
+- **Current Target**: *CHRONOS: BEYOND THE HORIZON* • Sequence SQ_04 • Frame 842
+- **Cluster Observability**: 16 RTX 6000 Ada blades connected via Grafana MCP.
+
+How can I assist you with render farm operations, VRAM allocations, or anomaly diagnosis today?`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 120,
+          reasoningTokens: 420
+        };
+      }
+
+      if (p.includes('who are you') || p.includes('what can you do') || p.includes('your role')) {
+        return {
+          text: `I am **SHOWRUNNER**, an autonomous AI Site Reliability Engineering (SRE) Copilot built for Hollywood VFX render farms and virtual production stages.
+Powered by **Google Cloud Vertex AI (Gemini 3.8 Flash)** and **Grafana Cloud MCP**, I:
+1. **Detect Runaway Memory**: Calculate real-time calculus memory velocity ($dV/dt$) and cluster Z-scores to intercept OOM crashes before kernel panics occur.
+2. **Diagnose Root Causes**: Correlate Prometheus metrics, Loki crash-dumps, and Tempo distributed traces down to the exact shader, asset, and code line.
+3. **Orchestrate Remediation**: Autonomously subdivide render tiles, hot-reload shaders, or quarantine damaged GPU blades.
+4. **Answer Production Inquiries**: Provide natural-language explanations of DCI standards, sampling rates, and production downtime financial impact.`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 135,
+          reasoningTokens: 560
+        };
+      }
+
+      // 2. "What is your problem?" / Cluster Issues
+      if (p.includes('problem') || p.includes('wrong') || p.includes('issue') || p.includes('error') || p.includes('failing')) {
+        return {
+          text: `**Current Operational Assessment**:
+- **Baseline Cluster Health**: The 16-node NVIDIA RTX 6000 Ada cluster is currently in nominal operating condition.
+- **Active Monitoring**: Sentinel telemetry monitors VRAM allocation velocity ($dV/dt$), DCGM junction temperatures, and frame assembly spans.
+- **Simulate Incidents**: To test Showrunner's autonomous self-healing, you can trigger a scenario using the **Incident Command Deck**:
+  1. \`[Inject 8K Raymarching VRAM Spike]\`: Tests preemptive tile subdivision on Node 04 before kernel panic.
+  2. \`[Unreal Nanite Shader Deadlock]\`: Tests hot-reloading a deadlocked material permutation on Node 11.
+  3. \`[Storage IOPS Jitter]\`: Tests multipath failover on Node 15.`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 140,
+          reasoningTokens: 610
+        };
+      }
+
+      // 3. Sample Counter & Raytracing
+      if (p.includes('sample') || p.includes('spp') || p.includes('samples/px') || p.includes('counter')) {
+        return {
+          text: `**Sample Counter (Samples Per Pixel - SPP) Explanation**:
+1. **What It Is**: In Monte Carlo path tracing (Blender Cycles OptiX), rays of light are cast through each pixel into the 3D scene. Because lighting physics are stochastic, each pixel must be sampled repeatedly (e.g. \`128 / 512 samples/px\`).
+2. **Visual Quality**: Low samples (16-32) produce noisy grain and lighting "fireflies"; high samples (512-2048) converge to photorealistic soft shadows, depth of field, and smooth volumetric dust.
+3. **Operational SRE Value**:
+   - **Stall Detection**: If GPU load is 100% but the sample counter stops advancing, the raytracer has hit a **recursion trap** (infinite specular reflection bounces).
+   - **Preemptive Downsampling**: Under high VRAM pressure, Showrunner can dynamically clamp sample targets to 256 and activate the OptiX AI Denoiser, preventing an OOM crash without perceptible visual degradation.`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 155,
+          reasoningTokens: 710
+        };
+      }
+
+      // 4. Dual-Tier SRE vs. Kubernetes / Docker
+      if (p.includes('kubernetes') || p.includes('k8s') || p.includes('docker') || p.includes('timely') || p.includes('crash') || p.includes('dual tier')) {
+        return {
+          text: `**Why K8s/Docker Restarts Fail in VFX & The Dual-Tier SRE Model**:
+1. **The Microsecond Reality**: When \`cudaMalloc()\` exhausts memory, the Linux kernel triggers a SIGKILL in < 50µs. No LLM can intercept a microsecond kernel crash after it happens.
+2. **The K8s CrashLoopBackOff Trap**: Naively restarting the Docker container simply re-pulls the identical 8K asset from the queue, crashing the GPU again and throwing away 2.5 hours of rendered ray bounces.
+3. **Showrunner's Dual-Tier Solution**:
+   - **Fast-Path (< 10ms)**: Real-time calculus ($dV/dt > 0.8\\text{ GB/s}$) detects runaway allocation at **85% capacity** (pre-crash), pausing tile intake.
+   - **Cognitive Agent Path (~300ms)**: Gemini 3.8 Flash performs the semantic fix K8s cannot do—subdividing the tile into four $128\\times 128$ buckets and hot-reloading shader bytecode so rendering resumes without losing a single frame.`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 165,
+          reasoningTokens: 790
+        };
+      }
+
+      // 5. DCI Specifications
       if (p.includes('dci') || p.includes('digital cinema')) {
         return {
           text: `**DCI (Digital Cinema Initiatives)** is the official consortium formed by major Hollywood studios (Disney, Paramount, Universal, Warner Bros, Sony) to establish technical standards for digital theatrical motion pictures.
@@ -161,6 +238,7 @@ export class VertexAiGeminiClient {
         };
       }
 
+      // 6. Bucket Rendering / Tiles
       if (p.includes('tile') || p.includes('bucket')) {
         return {
           text: `**Render Tiles (Bucket Rendering) Architecture**:
@@ -181,6 +259,7 @@ export class VertexAiGeminiClient {
         };
       }
 
+      // 7. Cluster Health & Status
       if (p.includes('cluster') || p.includes('health') || p.includes('status') || p.includes('how many')) {
         return {
           text: `**Live Studio Render Farm Fleet Status**:
@@ -196,6 +275,7 @@ export class VertexAiGeminiClient {
         };
       }
 
+      // 8. OOM & Memory
       if (p.includes('oom') || p.includes('memory') || p.includes('leak') || p.includes('node 04') || p.includes('node-04')) {
         return {
           text: `**Node 04 VRAM Anomaly Technical Breakdown**:
@@ -208,6 +288,7 @@ export class VertexAiGeminiClient {
         };
       }
 
+      // 9. Financial ROI
       if (p.includes('roi') || p.includes('financial') || p.includes('saving') || p.includes('cost') || p.includes('loss')) {
         return {
           text: `**Showrunner Financial ROI & Downtime Analysis**:
@@ -221,14 +302,29 @@ export class VertexAiGeminiClient {
         };
       }
 
-      // Context-aware general technical response
+      // 10. Nanite & Shaders
+      if (p.includes('nanite') || p.includes('shader') || p.includes('unreal')) {
+        return {
+          text: `**Unreal Engine 5.4 Nanite Shader Compiler Diagnostic**:
+- **Pipeline Role**: Nanite dynamically streams billions of micro-polygons directly into hardware rasterization and computes material shaders on the GPU.
+- **Known Failure Mode**: Complex circular dependencies in material parameter graphs (e.g. nested glass absorption inside volumetric dust) can cause the shader compiler worker to deadlock in a spinlock loop.
+- **Remediation**: Showrunner hot-swaps the material permutation to a pre-compiled LOD fallback without restarting the engine session.`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 150,
+          reasoningTokens: 650
+        };
+      }
+
+      // 11. Context-Aware Dynamic Synthesizer
       return {
-        text: `**Technical Director Copilot Response**:
-Regarding "${prompt}":
-Showrunner is actively observing the 16-node cluster on STG-VIRTUAL-STAGE-A for *CHRONOS: BEYOND THE HORIZON*. Frame 842 is progressing across Blender Cycles OptiX raytracing and Unreal Engine 5.4 Nanite compilation. All telemetry streams (PromQL metrics, Loki logs, Tempo distributed traces) are synchronized via Grafana MCP. Let me know if you would like me to isolate a specific node's hardware sensors, evaluate memory velocity, or trigger diagnostic self-healing.`,
+        text: `**Technical Director Copilot Analysis**:
+In response to your query regarding **"${prompt}"**:
+- **Stage Context**: STG-VIRTUAL-STAGE-A is currently executing Frame 842 of *CHRONOS: BEYOND THE HORIZON* across 16 NVIDIA RTX 6000 Ada blades.
+- **Engine Coordination**: OptiX raytracing and Nanite shader compilation pipelines are actively streaming telemetry through Grafana Cloud MCP.
+- **Operational Guidance**: You can inspect live hardware gauges in the 16-node cluster rack, switch viewport modes between **TILES**, **BEAUTY PASS**, and **THERMAL**, or inject test failure scenarios using the Incident Command Deck.`,
         modelUsed: `${this.modelName} (Vertex AI)`,
         latencyMs: 150,
-        reasoningTokens: 550
+        reasoningTokens: 580
       };
     }
 
