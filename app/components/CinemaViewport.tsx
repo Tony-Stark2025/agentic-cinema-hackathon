@@ -115,57 +115,142 @@ export const CinemaViewport: React.FC<CinemaViewportProps> = ({
         {/* Scanline Effect */}
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.4)_51%)] bg-[length:100%_4px] pointer-events-none opacity-40" />
 
-        {/* 64-Tile Render Bucket Matrix Overlay */}
-        <div className="relative z-10 grid grid-cols-8 grid-rows-4 gap-1.5 w-full h-full max-w-4xl p-2 border border-slate-700/60 rounded-lg bg-black/40 backdrop-blur-[2px]">
-          {Array.from({ length: 32 }).map((_, idx) => {
-            const isFailingTile = isCritical && idx === 14;
-            const isResolvedTile = isResolved && idx === 14;
-            const isSelectedNodeTile = selectedNodeId === 'gpu-node-04' && idx === 14;
-            const isActiveRendering = idx === 11 || idx === 18 || idx === 22;
+        {/* 1. TILE BUCKETS VIEW MODE */}
+        {viewMode === 'TILES' && (
+          <div className="relative z-10 grid grid-cols-8 grid-rows-4 gap-1.5 w-full h-full max-w-4xl p-2 border border-slate-700/60 rounded-lg bg-black/40 backdrop-blur-[2px]">
+            {Array.from({ length: 32 }).map((_, idx) => {
+              const isFailingTile = isCritical && idx === 14;
+              const isResolvedTile = isResolved && idx === 14;
+              const isSelectedNodeTile = selectedNodeId === 'gpu-node-04' && idx === 14;
+              const isActiveRendering = idx === 11 || idx === 18 || idx === 22;
 
-            return (
-              <div
-                key={idx}
-                className={`relative rounded border text-[9px] flex flex-col justify-between p-1 transition-all duration-300 overflow-hidden ${
-                  isFailingTile
-                    ? 'bg-rose-950/90 border-rose-500 ring-2 ring-rose-500 animate-pulse text-rose-200'
-                    : isResolvedTile
-                    ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200'
-                    : isActiveRendering
-                    ? 'bg-cyan-950/70 border-cyan-500/80 text-cyan-200'
-                    : isSelectedNodeTile
-                    ? 'bg-amber-950/60 border-amber-400 text-amber-200'
-                    : 'bg-slate-900/60 border-slate-800/80 text-slate-400 hover:border-slate-600'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold">T{idx + 1}</span>
+              return (
+                <div
+                  key={idx}
+                  className={`relative rounded border text-[9px] flex flex-col justify-between p-1 transition-all duration-300 overflow-hidden ${
+                    isFailingTile
+                      ? 'bg-rose-950/90 border-rose-500 ring-2 ring-rose-500 animate-pulse text-rose-200'
+                      : isResolvedTile
+                      ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200'
+                      : isActiveRendering
+                      ? 'bg-cyan-950/70 border-cyan-500/80 text-cyan-200'
+                      : isSelectedNodeTile
+                      ? 'bg-amber-950/60 border-amber-400 text-amber-200'
+                      : 'bg-slate-900/60 border-slate-800/80 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">T{idx + 1}</span>
+                    {isFailingTile ? (
+                      <AlertTriangle className="w-2.5 h-2.5 text-rose-400 animate-bounce" />
+                    ) : isResolvedTile ? (
+                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                    ) : (
+                      <span className="text-[7px] text-slate-500">N{(idx % 16) + 1}</span>
+                    )}
+                  </div>
+
                   {isFailingTile ? (
-                    <AlertTriangle className="w-2.5 h-2.5 text-rose-400 animate-bounce" />
+                    <span className="text-[7px] font-bold text-rose-300 uppercase leading-tight">
+                      OOM CRITICAL
+                    </span>
                   ) : isResolvedTile ? (
-                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                    <span className="text-[7px] font-bold text-emerald-300 uppercase leading-tight">
+                      SPLIT 8x8 OK
+                    </span>
                   ) : (
-                    <span className="text-[7px] text-slate-500">N{(idx % 16) + 1}</span>
+                    <span className="text-[7px] text-slate-400">
+                      {idx < 14 ? '128/128' : `${Math.min(128, samples / 4)}/128`}
+                    </span>
                   )}
                 </div>
+              );
+            })}
+          </div>
+        )}
 
-                {isFailingTile ? (
-                  <span className="text-[7px] font-bold text-rose-300 uppercase leading-tight">
-                    OOM CRITICAL
-                  </span>
-                ) : isResolvedTile ? (
-                  <span className="text-[7px] font-bold text-emerald-300 uppercase leading-tight">
-                    SPLIT 8x8 OK
-                  </span>
-                ) : (
-                  <span className="text-[7px] text-slate-400">
-                    {idx < 14 ? '128/128' : `${Math.min(128, samples / 4)}/128`}
-                  </span>
+        {/* 2. BEAUTY PASS VIEW MODE (Photorealistic Denoised Film Frame) */}
+        {viewMode === 'BEAUTY' && (
+          <div className="relative z-10 w-full h-full max-w-4xl rounded-lg overflow-hidden border-2 border-slate-700 shadow-2xl flex flex-col justify-between p-4 bg-gradient-to-t from-black via-amber-950/40 to-slate-900">
+            {/* Cinematic 2.39:1 Letterbox Bars */}
+            <div className="absolute top-0 left-0 right-0 h-4 bg-black/90 z-10" />
+            <div className="absolute bottom-0 left-0 right-0 h-4 bg-black/90 z-10" />
+
+            {/* Denoised Scene Content */}
+            <div className="relative z-0 h-full flex flex-col justify-between py-3">
+              {/* Top Camera HUD */}
+              <div className="flex items-center justify-between text-[10px] text-amber-300/90 font-mono">
+                <span className="bg-black/60 px-2 py-0.5 rounded border border-amber-500/30">
+                  ARRI ALEXA 65 &bull; 65mm T1.9 Prime &bull; EI 800
+                </span>
+                <span className="bg-black/60 px-2 py-0.5 rounded border border-cyan-500/30 text-cyan-300">
+                  ACEScg Color Pipeline &bull; OptiX AI Denoiser
+                </span>
+              </div>
+
+              {/* Center Scene Artwork Simulation */}
+              <div className="text-center space-y-1 my-auto">
+                <div className="text-lg font-black tracking-widest text-amber-200 drop-shadow-md">
+                  CHRONOS &bull; SCENE 04 &bull; ARRAKIS AMBUSH
+                </div>
+                <div className="text-[11px] text-slate-300 drop-shadow">
+                  4K DCI (4096×2160) &bull; Frame 842 &bull; 14.8M Volumetric Micro-Polygons
+                </div>
+                {isCritical && (
+                  <div className="inline-block mt-2 bg-rose-950/90 border border-rose-500 text-rose-300 px-3 py-1 rounded text-xs font-bold animate-pulse">
+                    [OPTIX ERROR: Tile 15 Raymarcher Aborted on gpu-node-04]
+                  </div>
+                )}
+                {isResolved && (
+                  <div className="inline-block mt-2 bg-emerald-950/90 border border-emerald-500 text-emerald-300 px-3 py-1 rounded text-xs font-bold">
+                    [DENOISED BEAUTY PASS: 100% Convergence at 512 Samples/px]
+                  </div>
                 )}
               </div>
-            );
-          })}
-        </div>
+
+              {/* Bottom Timecode HUD */}
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                <span>TC: 01:24:18:14</span>
+                <span className="text-emerald-400 font-bold">DCI Theatrical DCP Ready</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. FALSE COLOR THERMAL HEATMAP VIEW MODE */}
+        {viewMode === 'THERMAL' && (
+          <div className="relative z-10 w-full h-full max-w-4xl rounded-lg overflow-hidden border-2 border-slate-700 shadow-2xl flex flex-col justify-between p-4 bg-gradient-to-r from-blue-950 via-purple-900 to-rose-950">
+            {/* Heatmap Grid & Legend */}
+            <div className="flex items-center justify-between text-[10px] text-white font-mono bg-black/60 p-2 rounded border border-slate-700">
+              <span className="font-bold text-cyan-300">VRAM Allocation &amp; DCGM Thermal Density Spectrum:</span>
+              <div className="flex items-center gap-1.5 text-[9px]">
+                <span className="text-blue-400">16GB (Cool)</span>
+                <span className="w-16 h-2 rounded bg-gradient-to-r from-blue-500 via-yellow-400 to-rose-600" />
+                <span className="text-rose-400 font-bold">48GB (HOTSPOT)</span>
+              </div>
+            </div>
+
+            {/* Hotspot Visualization */}
+            <div className="h-full flex items-center justify-center relative">
+              {isCritical ? (
+                <div className="w-40 h-28 rounded-xl bg-gradient-to-br from-rose-500 via-amber-500 to-yellow-300 animate-pulse border-2 border-white flex flex-col items-center justify-center text-slate-950 font-bold p-2 shadow-2xl shadow-rose-500/50">
+                  <span className="text-xs">HOTSPOT DETECTED</span>
+                  <span className="text-[10px]">gpu-node-04 &bull; 86.4°C</span>
+                  <span className="text-[9px]">47.8GB / 48.0GB VRAM</span>
+                </div>
+              ) : (
+                <div className="text-center space-y-1">
+                  <div className="text-emerald-300 font-bold text-sm">Cluster Thermal Equilibrium Normal</div>
+                  <div className="text-slate-300 text-[10px]">All 16 GPU junction sensors between 61°C and 66°C (Delta &lt; 5°C)</div>
+                </div>
+              )}
+            </div>
+
+            <div className="text-[10px] text-slate-400 text-center font-mono">
+              FLIR False-Color Radiometric Map &bull; Precision: &plusmn;0.5°C Junction Sensor
+            </div>
+          </div>
+        )}
 
         {/* Live Incident Alert HUD Overlay */}
         {isCritical && (

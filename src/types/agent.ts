@@ -1,4 +1,4 @@
-export type AgentRole = 'SENTINEL' | 'DIAGNOSTICIAN' | 'REMEDIATION' | 'EXECUTIVE';
+export type AgentRole = 'SENTINEL' | 'DIAGNOSTICIAN' | 'REMEDIATION' | 'EXECUTIVE' | 'COPILOT';
 
 export type GeminiModelId = 'gemini-3.8-flash' | 'gemini-3.8-flash (Vertex AI)' | 'gemini-3.7-flash' | 'gemini-3.7-flash (Vertex AI)';
 

@@ -29,7 +29,7 @@ You have real-time access to the studio telemetry and Grafana MCP stack:
 Answer the Technical Director or Studio Head concisely, authoritatively, with exact node IDs and actionable studio intelligence.`;
 
     const vertexAi = VertexAiGeminiClient.getInstance();
-    const result = await vertexAi.generateContent('DIAGNOSTICIAN', {
+    const result = await vertexAi.generateContent('COPILOT', {
       systemPrompt,
       userPrompt: message
     });

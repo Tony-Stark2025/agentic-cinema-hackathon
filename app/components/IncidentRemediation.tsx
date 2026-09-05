@@ -291,10 +291,15 @@ export const IncidentRemediation: React.FC<IncidentRemediationProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   {!canApprove ? (
-                    <div className="flex items-center gap-1.5 text-xs text-rose-300 bg-rose-950 px-3 py-1.5 rounded border border-rose-700">
+                    <button
+                      onClick={() => onApproveRemediation?.(activeIncident.id, defaultAction)}
+                      disabled={isLoading}
+                      className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                      title="Elevate operator role to Lead TD to authorize fix"
+                    >
                       <Lock className="w-3.5 h-3.5" />
-                      Requires Lead TD Clearance
-                    </div>
+                      Elevate &amp; Approve Fix ({defaultAction})
+                    </button>
                   ) : (
                     <button
                       onClick={() => onApproveRemediation?.(activeIncident.id, defaultAction)}

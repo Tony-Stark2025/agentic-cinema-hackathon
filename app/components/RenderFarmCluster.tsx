@@ -31,8 +31,8 @@ export const RenderFarmCluster: React.FC<RenderFarmClusterProps> = ({
   // Guarantee that all 16 nodes are rendered even before initial fetch
   const effectiveNodes = nodes && nodes.length > 0 ? nodes : getEnterpriseBaselineNodes();
   const [inspectingNode, setInspectingNode] = useState<GpuNode | null>(null);
-
-  const selectedNode = effectiveNodes.find(n => n.id === selectedNodeId) || effectiveNodes[3];
+  const criticalNodes = effectiveNodes.filter(n => n.status === 'CRITICAL');
+  const healthyCount = effectiveNodes.filter(n => n.status === 'HEALTHY').length;
 
   return (
     <div className="bg-slate-900 border-2 border-slate-700/90 rounded-xl p-5 shadow-2xl space-y-4 font-mono">
@@ -52,16 +52,30 @@ export const RenderFarmCluster: React.FC<RenderFarmClusterProps> = ({
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-4 text-xs">
+        {/* Dynamic Legend */}
+        <div className="flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5 bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-700/60 text-emerald-300">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-bold">Nominal (15)</span>
+            <span className="font-bold">Nominal ({healthyCount})</span>
           </div>
-          <div className="flex items-center gap-1.5 bg-rose-950/60 px-2.5 py-1 rounded border border-rose-700/60 text-rose-300">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-            <span className="font-bold">OOM Anomaly (1)</span>
-          </div>
+          {criticalNodes.length > 0 ? (
+            <button
+              onClick={() => {
+                onSelectNode(criticalNodes[0].id);
+                setInspectingNode(criticalNodes[0]);
+              }}
+              className="flex items-center gap-1.5 bg-rose-950 px-3 py-1 rounded border-2 border-rose-500 text-rose-300 font-bold animate-pulse hover:bg-rose-900 cursor-pointer shadow-lg shadow-rose-500/30 transition-all"
+              title="Click to jump directly to failing GPU node"
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+              <span>{criticalNodes.length} OOM Anomaly ({criticalNodes[0].id}) &rarr;</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded border border-slate-800 text-slate-400">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>0 Anomalies</span>
+            </div>
+          )}
         </div>
       </div>
 

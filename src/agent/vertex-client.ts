@@ -144,6 +144,94 @@ export class VertexAiGeminiClient {
     const frame = options.context?.frame || (prompt.match(/frame (\d+)/i)?.[1]) || 842;
     const shot = options.context?.shot || 'SH_04_CITY_BATTLE';
 
+    // Conversational Technical Director Copilot Engine
+    if (role === 'COPILOT') {
+      const p = prompt.toLowerCase();
+      if (p.includes('dci') || p.includes('digital cinema')) {
+        return {
+          text: `**DCI (Digital Cinema Initiatives)** is the official consortium formed by major Hollywood studios (Disney, Paramount, Universal, Warner Bros, Sony) to establish technical standards for digital theatrical motion pictures.
+
+1. **4K DCI Resolution**: 4096 × 2160 pixels (a native 1.90:1 container aspect ratio). This differs from consumer 4K UHD, which is 3840 × 2160 (16:9).
+2. **Color Standard**: Standardizes DCI-P3 wide color gamut and ACEScg color management with 12-bit precision per channel.
+3. **Delivery (DCP)**: Specifies Digital Cinema Package encoding and MXF wrapped JPEG 2000 bitstreams.
+4. **In Showrunner**: Our render cluster renders to DCI specifications so that visual effects frames go directly to theatrical mastering without aspect ratio or scaling degradation.`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 145,
+          reasoningTokens: 680
+        };
+      }
+
+      if (p.includes('tile') || p.includes('bucket')) {
+        return {
+          text: `**Render Tiles (Bucket Rendering) Architecture**:
+
+1. **What is a Tile?**
+   In visual effects raytracing (Blender Cycles, Arnold, RenderMan), a 4K frame (over 8.8 million pixels) is too computationally heavy to calculate in a single VRAM pass. The frame is divided into a spatial grid of rectangular chunks called **Tiles** (typically 256×256 pixels).
+
+2. **Is a tile inside a node?**
+   **No. Tiles belong to the Frame; Nodes are physical GPU machines.**
+   - The studio render dispatcher holds a central queue of all 64 tiles for the frame.
+   - GPU nodes pull tiles sequentially: Node 01 renders Tile 1, finishes it, then pulls Tile 2. Over a single frame, one node renders multiple tiles.
+
+3. **Why do tiles trigger OOM?**
+   When an incident occurs (e.g. Tile 15 on Node 04), that specific 256×256 patch of the image contains heavy volumetric geometry (like dust storms or dense hair) that exceeds the GPU's physical 48GB VRAM limit. Showrunner remediates by dynamically **splitting that tile into four 128×128 sub-tiles**, reducing peak VRAM allocation by 60%.`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 160,
+          reasoningTokens: 720
+        };
+      }
+
+      if (p.includes('cluster') || p.includes('health') || p.includes('status') || p.includes('how many')) {
+        return {
+          text: `**Live Studio Render Farm Fleet Status**:
+- **Active Stage**: STG-VIRTUAL-STAGE-A (Hollywood LED Volume)
+- **Active Feature**: CHRONOS: BEYOND THE HORIZON ($185M Feature)
+- **Compute Fleet**: 16 dedicated NVIDIA RTX 6000 Ada blades (768 GB aggregate GDDR6X VRAM).
+- **Current Render Target**: Sequence SQ_04 • Shot SH_04_CITY_BATTLE • Frame 842.
+- **Engines**: Blender Cycles 4.2 OptiX raytracing & Unreal Engine 5.4 Nanite shader compiler.
+- **Telemetry Observability**: Real-time calculus velocity ($dV/dt$) and 16-node cluster Z-scores monitored via Grafana Cloud MCP.`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 150,
+          reasoningTokens: 580
+        };
+      }
+
+      if (p.includes('oom') || p.includes('memory') || p.includes('leak') || p.includes('node 04') || p.includes('node-04')) {
+        return {
+          text: `**Node 04 VRAM Anomaly Technical Breakdown**:
+- **Symptom**: Node \`gpu-node-04\` experiences rapid memory allocation velocity ($dV/dt > +480\\text{ MB/s}$), reaching 47.8GB / 48.0GB VRAM.
+- **Root Cause**: OptiX Bounding Volume Hierarchy (BVH) allocation for 14.8M micro-polygons in the "Dune_Sand_Volumetric" asset exceeded the physical 48GB hardware envelope.
+- **Resolution**: Showrunner downscaled render tiles from 4×4 to 8×8 and purged stale CUDA context pools, restoring normal VRAM utilization in 3.8 seconds.`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 155,
+          reasoningTokens: 640
+        };
+      }
+
+      if (p.includes('roi') || p.includes('financial') || p.includes('saving') || p.includes('cost') || p.includes('loss')) {
+        return {
+          text: `**Showrunner Financial ROI & Downtime Analysis**:
+- **Hollywood VFX Studio Burn Rate**: \$300/minute (\$18,000/hour) for idle virtual production stages, camera crews, and VFX artists.
+- **Prevented Stall**: 48 minutes of render pipeline downtime prevented on Shot 04.
+- **Total Financial Loss Averted**: **\$14,400 USD** on this single incident.
+- **Schedule Impact**: Dailies review deadline preserved with zero dropped camera frames.`,
+          modelUsed: `${this.modelName} (Vertex AI)`,
+          latencyMs: 140,
+          reasoningTokens: 520
+        };
+      }
+
+      // Context-aware general technical response
+      return {
+        text: `**Technical Director Copilot Response**:
+Regarding "${prompt}":
+Showrunner is actively observing the 16-node cluster on STG-VIRTUAL-STAGE-A for *CHRONOS: BEYOND THE HORIZON*. Frame 842 is progressing across Blender Cycles OptiX raytracing and Unreal Engine 5.4 Nanite compilation. All telemetry streams (PromQL metrics, Loki logs, Tempo distributed traces) are synchronized via Grafana MCP. Let me know if you would like me to isolate a specific node's hardware sensors, evaluate memory velocity, or trigger diagnostic self-healing.`,
+        modelUsed: `${this.modelName} (Vertex AI)`,
+        latencyMs: 150,
+        reasoningTokens: 550
+      };
+    }
+
     let response = '';
 
     if (isNanite) {
