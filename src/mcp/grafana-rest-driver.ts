@@ -107,6 +107,38 @@ export class GrafanaRestDriver {
     }
   }
 
+  private cachedDatasources: { promUid?: string; lokiUid?: string; tempoUid?: string } = {};
+
+  private async getDatasources(): Promise<{ promUid?: string; lokiUid?: string; tempoUid?: string }> {
+    if (this.cachedDatasources.promUid) {
+      return this.cachedDatasources;
+    }
+    try {
+      const res = await this.fetchWithTimeout(`${this.baseUrl}/api/datasources`);
+      if (res.ok) {
+        const datasources = await res.json();
+        if (Array.isArray(datasources)) {
+          const prom = datasources.find((d: { type: string }) => d.type === 'prometheus');
+          const loki = datasources.find((d: { type: string; name?: string }) => d.type === 'loki' && !(d.name || '').includes('alert-state') && !(d.name || '').includes('usage')) || datasources.find((d: { type: string }) => d.type === 'loki');
+          const tempo = datasources.find((d: { type: string }) => d.type === 'tempo');
+          this.cachedDatasources = {
+            promUid: prom?.uid || 'grafanacloud-prom',
+            lokiUid: loki?.uid || 'grafanacloud-logs',
+            tempoUid: tempo?.uid || 'grafanacloud-traces'
+          };
+          return this.cachedDatasources;
+        }
+      }
+    } catch {
+      // Fall back to standard defaults
+    }
+    return {
+      promUid: 'grafanacloud-prom',
+      lokiUid: 'grafanacloud-logs',
+      tempoUid: 'grafanacloud-traces'
+    };
+  }
+
   /**
    * Query PromQL metrics from Grafana Cloud Mimir / Prometheus.
    */
@@ -115,13 +147,15 @@ export class GrafanaRestDriver {
       throw new Error('Grafana Cloud is not configured');
     }
 
+    const { promUid } = await this.getDatasources();
+
     // Method 1: Try Unified Grafana DataSource Query API (/api/ds/query)
     try {
       const dsQueryPayload = {
         queries: [
           {
             refId: 'A',
-            datasource: { type: 'prometheus' },
+            datasource: { uid: promUid, type: 'prometheus' },
             expr: promql,
             instant: true,
             range: false
@@ -138,13 +172,13 @@ export class GrafanaRestDriver {
 
       if (dsRes.ok) {
         const json = await dsRes.json();
-        if (json.results?.A?.frames?.length > 0) {
+        if (json.results?.A?.status === 200 || json.results?.A?.frames?.length > 0) {
           return {
             success: true,
             data: {
-              source: 'Grafana Cloud (Mimir Live /api/ds/query)',
+              source: `Grafana Cloud (Mimir Live /api/ds/query [${promUid}])`,
               query: promql,
-              frames: json.results.A.frames,
+              frames: json.results.A.frames || [],
               status: 'LIVE_OK'
             }
           };
@@ -181,13 +215,15 @@ export class GrafanaRestDriver {
       throw new Error('Grafana Cloud is not configured');
     }
 
+    const { lokiUid } = await this.getDatasources();
+
     // Method 1: Try Unified DataSource Query API
     try {
       const dsPayload = {
         queries: [
           {
             refId: 'A',
-            datasource: { type: 'loki' },
+            datasource: { uid: lokiUid, type: 'loki' },
             expr: logql,
             maxLines: limit
           }
@@ -203,13 +239,13 @@ export class GrafanaRestDriver {
 
       if (dsRes.ok) {
         const json = await dsRes.json();
-        if (json.results?.A?.frames) {
+        if (json.results?.A?.status === 200 || json.results?.A?.frames?.length > 0) {
           return {
             success: true,
             data: {
-              source: 'Grafana Cloud (Loki Live /api/ds/query)',
+              source: `Grafana Cloud (Loki Live /api/ds/query [${lokiUid}])`,
               query: logql,
-              frames: json.results.A.frames,
+              frames: json.results.A.frames || [],
               status: 'LIVE_OK'
             }
           };

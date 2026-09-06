@@ -49,16 +49,16 @@ export class VertexAiGeminiClient {
     try {
       const apiKey = process.env.GEMINI_API_KEY || process.env.VERTEX_AI_API_KEY;
       
-      // If deployed on Google Cloud with ADC (Application Default Credentials):
-      if (process.env.K_SERVICE || process.env.GOOGLE_CLOUD_PROJECT) {
+      // If an explicit Gemini API key is provided, use Google GenAI Developer API
+      if (apiKey && apiKey !== 'your_gemini_api_key_here') {
+        this.client = new GoogleGenAI({ apiKey });
+      } else if (process.env.K_SERVICE || process.env.GOOGLE_CLOUD_PROJECT) {
+        // Deployed on Google Cloud with ADC (Application Default Credentials):
         this.client = new GoogleGenAI({
           vertexai: true,
           project: this.projectId,
           location: this.region
         });
-      } else if (apiKey && apiKey !== 'your_gemini_api_key_here') {
-        // Local developer fallback with API key
-        this.client = new GoogleGenAI({ apiKey });
       }
     } catch (err) {
       console.warn('[VertexAiGeminiClient] Client init warning; using resilient studio engine mode:', err);
@@ -89,12 +89,16 @@ export class VertexAiGeminiClient {
 
     if (this.client) {
       try {
+        // Map conceptual model name to real Gemini API endpoint if necessary
+        const targetModel = (this.modelName === 'gemini-3.8-flash' || !this.modelName)
+          ? 'gemini-2.0-flash'
+          : this.modelName;
+
         const response = await this.client.models.generateContent({
-          model: this.modelName,
+          model: targetModel,
           contents: `${options.systemPrompt}\n\n${options.userPrompt}`,
           config: {
             maxOutputTokens: options.maxTokens || 4096
-            // Reasoning budget cap removed per instruction: lets Gemini 3.8 Flash reason adaptively
           }
         });
 
