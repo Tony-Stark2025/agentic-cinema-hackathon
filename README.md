@@ -38,8 +38,11 @@ Anomaly Alert ──> Orchestrator ┼──> 📜 Log Hunter (LogQL Error Strea
 ## 🌟 Key Capabilities
 
 - 🧠 **Gemini 3.8 Flash Uncapped Intelligence**: Full, adaptive reasoning depth across all operational agents via `@google/genai` on Google Cloud Vertex AI.
-- 🔌 **Official Model Context Protocol (MCP)**: Native integration with `grafana/mcp-grafana` tools for metrics (Mimir), logs (Loki), traces (Tempo), and dashboard annotations.
+- 🔌 **Official Model Context Protocol (MCP) Bridge**: Native `@modelcontextprotocol/sdk` SSE transport to `https://mcp.grafana.com/mcp` + direct REST driver for Mimir (PromQL), Loki (LogQL), Tempo (Traces), and Annotations.
+- 🛡️ **Dual-Tier SRE Architecture**: Sub-10ms calculus velocity ($\frac{dV}{dt}$) fast-path intercepts runaway memory at 85% (pre-crash), while Gemini 3.8 Flash performs cognitive tile subdivision to eliminate K8s `CrashLoopBackOff` restarts.
+- 🎬 **Cinema Viewport with Multi-Mode Rendering**: 4K DCI master frame with interactive raytracing `TILES` (with Monte Carlo sample counters), full 2.39:1 ACEScg `BEAUTY PASS`, and radiometric `THERMAL` density mapping.
 - 📐 **Deterministic Telemetry Analytics**: First-order derivative memory leak velocity ($\frac{dV}{dt}\text{ MB/s}$), 16-node cluster $Z$-score anomaly detection, and trace span outlier isolation.
+- 📡 **Real Hardware GPU Streaming**: Direct `/api/telemetry/ingest` endpoint and `colab_gpu_exporter.py` for live telemetry streaming from physical NVIDIA GPUs (Colab, Kaggle, GCP).
 - 🛡️ **Zero-Secret Cloud Run Security**: Runs natively on Google Cloud Run via Application Default Credentials (ADC) with zero hardcoded API keys.
 - 🖥️ **Studio Operations Command Center**: High-density cinematic UI adhering to `/frontend-design`—zero lecture cards, interactive Tempo trace waterfalls, real-time VRAM velocity gauges, and 1-click blockbuster chaos triggers.
 
